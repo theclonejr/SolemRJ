@@ -1,17 +1,17 @@
 :root {
     /* New Unique Color Palette */
-    --earth-base: #1A1A1A;
-    --earth-lighter: #242424;
+    --earth-base: #f5ecb7;
+    --earth-lighter: #;
     --coral: #FF6F61;
     --terracotta: #B85A4D;
-    --mint: #AAF0D1;
-    --text-primary: #F4F4F5;
-    --text-secondary: #A1A1AA;
-    
+    --mint: #23192D;
+    --text-primary: #FEBF97;
+    --text-secondary: #FD0A54;
+
     /* Typography */
     --font-display: 'Outfit', sans-serif;
     --font-body: 'Plus Jakarta Sans', sans-serif;
-    
+
     /* Spacing */
     --section-padding: 120px 0;
 }
@@ -59,7 +59,11 @@ body {
 }
 
 /* Typography */
-h1, h2, h3, h4, .logo {
+h1,
+h2,
+h3,
+h4,
+.logo {
     font-family: var(--font-display);
 }
 
@@ -148,7 +152,7 @@ p {
 
 .navbar.scrolled {
     padding: 1rem 4rem;
-    background: rgba(16, 16, 16, 0.7);
+    background: rgba(190, 185, 111, 0.363);
     backdrop-filter: blur(24px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -177,6 +181,10 @@ p {
     color: var(--mint);
 }
 
+.btn-text {
+    color: #FD0A54;
+}
+
 /* Hero Section */
 .hero {
     position: relative;
@@ -193,10 +201,12 @@ p {
     padding: 0 2rem;
     position: relative;
     z-index: 2;
-    pointer-events: none; /* Let clicks pass through to canvas if needed, except for buttons */
+    pointer-events: none;
+    /* Let clicks pass through to canvas if needed, except for buttons */
 }
 
-.hero-actions, .badge {
+.hero-actions,
+.badge {
     pointer-events: auto;
 }
 
@@ -277,24 +287,35 @@ p {
 }
 
 @keyframes scrollWheel {
-    0% { top: 6px; opacity: 1; }
-    100% { top: 20px; opacity: 0; }
+    0% {
+        top: 6px;
+        opacity: 1;
+    }
+
+    100% {
+        top: 20px;
+        opacity: 0;
+    }
 }
 
 /* Sculpted Glassmorphism */
 .sculpted-glass-card {
     background: linear-gradient(145deg, rgba(26, 26, 26, 0.6), rgba(16, 16, 16, 0.8));
     border-radius: 24px;
-    padding: 1px; /* for gradient border */
+    padding: 1px;
+    /* for gradient border */
     position: relative;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
     overflow: hidden;
 }
 
 .sculpted-glass-card::before {
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: linear-gradient(135deg, rgba(255, 111, 97, 0.2), transparent 40%, rgba(170, 240, 209, 0.1));
     z-index: 0;
     opacity: 0.5;
@@ -396,9 +417,17 @@ p {
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
 }
 
-.span-2 { grid-column: span 2; }
-.span-row-2 { grid-row: span 2; }
-.tall { grid-row: span 2; }
+.span-2 {
+    grid-column: span 2;
+}
+
+.span-row-2 {
+    grid-row: span 2;
+}
+
+.tall {
+    grid-row: span 2;
+}
 
 /* Services specific */
 .bento-item {
@@ -410,7 +439,10 @@ p {
 
 .bento-bg {
     position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     background: radial-gradient(circle at top right, rgba(255, 111, 97, 0.15), transparent 60%);
     opacity: 0;
     transition: opacity 0.4s ease;
@@ -447,7 +479,8 @@ p {
 .carousel-wrapper {
     position: relative;
     width: 100vw;
-    margin-left: calc(-50vw + 50%); /* Full bleed trick */
+    margin-left: calc(-50vw + 50%);
+    /* Full bleed trick */
     padding: 2rem 0;
     overflow: hidden;
 }
@@ -467,7 +500,7 @@ p {
     overflow: hidden;
     position: relative;
     cursor: pointer;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     transform-origin: center center;
 }
 
@@ -488,7 +521,7 @@ p {
     left: 0;
     width: 100%;
     padding: 2.5rem 2rem 2rem;
-    background: linear-gradient(to top, rgba(26,26,26,0.95) 0%, transparent 100%);
+    background: linear-gradient(to top, rgba(26, 26, 26, 0.95) 0%, transparent 100%);
     transform: translateY(20px);
     opacity: 0;
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -519,7 +552,10 @@ p {
 /* Modal / Lightbox */
 .modal-overlay {
     position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
     background: rgba(10, 10, 10, 0.6);
     backdrop-filter: blur(15px);
     z-index: 9999;
@@ -552,7 +588,7 @@ p {
     position: absolute;
     top: 1.5rem;
     right: 1.5rem;
-    background: rgba(255,255,255,0.1);
+    background: rgba(255, 255, 255, 0.1);
     border: none;
     color: #fff;
     font-size: 2rem;
@@ -585,7 +621,8 @@ p {
     background: #000;
 }
 
-.modal-media img, .modal-media video {
+.modal-media img,
+.modal-media video {
     width: 100%;
     height: 100%;
     object-fit: contain;
@@ -603,7 +640,9 @@ p {
 }
 
 /* Timeline */
-.workflow { padding: var(--section-padding); }
+.workflow {
+    padding: var(--section-padding);
+}
 
 .timeline {
     position: relative;
@@ -671,7 +710,9 @@ p {
 }
 
 /* Contact */
-.contact { padding: var(--section-padding); }
+.contact {
+    padding: var(--section-padding);
+}
 
 .contact-container {
     display: grid;
@@ -747,10 +788,10 @@ p {
     pointer-events: none;
 }
 
-.form-group input:focus ~ label,
-.form-group input:not(:placeholder-shown) ~ label,
-.form-group textarea:focus ~ label,
-.form-group textarea:not(:placeholder-shown) ~ label {
+.form-group input:focus~label,
+.form-group input:not(:placeholder-shown)~label,
+.form-group textarea:focus~label,
+.form-group textarea:not(:placeholder-shown)~label {
     top: -0.6rem;
     left: 1rem;
     font-size: 0.8rem;
@@ -763,7 +804,7 @@ p {
 footer {
     padding: 3rem 0;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
-    background: rgba(0,0,0,0.2);
+    background: rgba(0, 0, 0, 0.2);
 }
 
 .footer-content {
@@ -774,25 +815,80 @@ footer {
 
 /* Responsive */
 @media (max-width: 1024px) {
-    .services-grid { grid-template-columns: repeat(2, 1fr); }
-    .empowerment-content, .contact-container { grid-template-columns: 1fr; gap: 3rem; }
+    .services-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .empowerment-content,
+    .contact-container {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+    }
 }
 
 @media (max-width: 768px) {
-    .navbar { padding: 1.5rem 2rem; }
-    .navbar nav { display: none; }
-    .hero-title { font-size: 3rem; }
-    .section-title { font-size: 2.5rem; }
-    .services-grid { grid-template-columns: 1fr; }
-    .span-2, .span-row-2, .tall { grid-column: span 1; grid-row: auto; }
-    .carousel-item { width: 300px; height: 200px; }
-    .timeline-step, .timeline-step.right { width: 100%; padding: 0 0 0 4rem; margin-left: 0; justify-content: flex-start; }
-    .timeline-path { left: 20px; transform: none; }
-    .step-dot, .timeline-step.right .step-dot { left: -10px; right: auto; }
+    .navbar {
+        padding: 1.5rem 2rem;
+    }
+
+    .navbar nav {
+        display: none;
+    }
+
+    .hero-title {
+        font-size: 3rem;
+    }
+
+    .section-title {
+        font-size: 2.5rem;
+    }
+
+    .services-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .span-2,
+    .span-row-2,
+    .tall {
+        grid-column: span 1;
+        grid-row: auto;
+    }
+
+    .carousel-item {
+        width: 300px;
+        height: 200px;
+    }
+
+    .timeline-step,
+    .timeline-step.right {
+        width: 100%;
+        padding: 0 0 0 4rem;
+        margin-left: 0;
+        justify-content: flex-start;
+    }
+
+    .timeline-path {
+        left: 20px;
+        transform: none;
+    }
+
+    .step-dot,
+    .timeline-step.right .step-dot {
+        left: -10px;
+        right: auto;
+    }
 }
 
 /* Prefers Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
-    * { animation: none !important; transition: none !important; }
-    #webgl-canvas { display: none; } /* Hide heavy canvas */
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    #webgl-canvas {
+        display: none;
+    }
+
+    /* Hide heavy canvas */
 }
