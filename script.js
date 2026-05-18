@@ -50,7 +50,7 @@ class WebGLApp {
         // Create a central core made of fragmented geometric pieces
         const geometry = new THREE.BoxGeometry(1, 1, 1);
         const material = new THREE.MeshPhysicalMaterial({
-            color: 0xFF6F61, // Coral
+            color: 0x23192D, // Mint (Dark contrast)
             metalness: 0.2,
             roughness: 0.1,
             transmission: 0.9,
