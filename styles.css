@@ -1,7 +1,7 @@
 :root {
     /* New Unique Color Palette */
-    --earth-base: #101010;
-    --earth-lighter: #1A1A1A;
+    --earth-base: #1A1A1A;
+    --earth-lighter: #242424;
     --coral: #FF6F61;
     --terracotta: #B85A4D;
     --mint: #AAF0D1;
@@ -387,12 +387,7 @@ p {
     grid-auto-rows: 280px;
 }
 
-.projects-grid {
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 320px;
-}
-
-.bento-item, .project-item {
+.bento-item {
     position: relative;
     border-radius: 24px;
     overflow: hidden;
@@ -443,30 +438,69 @@ p {
     opacity: 1;
 }
 
-/* Projects specific (Proxy for WebGL) */
-.project-item {
-    cursor: crosshair;
+/* Projects Carousel */
+.container-fluid {
+    width: 100%;
+    overflow: hidden;
 }
 
-.project-info {
+.carousel-wrapper {
+    position: relative;
+    width: 100vw;
+    margin-left: calc(-50vw + 50%); /* Full bleed trick */
+    padding: 2rem 0;
+    overflow: hidden;
+}
+
+.carousel-track {
+    display: flex;
+    gap: 2rem;
+    width: max-content;
+    padding: 0 2rem;
+}
+
+.carousel-item {
+    width: 450px;
+    height: 300px;
+    flex-shrink: 0;
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    transform-origin: center center;
+}
+
+.carousel-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.carousel-item:hover img {
+    transform: scale(1.08);
+}
+
+.carousel-info {
     position: absolute;
     bottom: 0;
     left: 0;
     width: 100%;
-    padding: 2.5rem;
-    background: linear-gradient(to top, rgba(16,16,16,0.9) 0%, transparent 100%);
-    z-index: 2;
+    padding: 2.5rem 2rem 2rem;
+    background: linear-gradient(to top, rgba(26,26,26,0.95) 0%, transparent 100%);
     transform: translateY(20px);
     opacity: 0;
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 5;
 }
 
-.project-item:hover .project-info {
+.carousel-item:hover .carousel-info {
     transform: translateY(0);
     opacity: 1;
 }
 
-.project-info .tag {
+.carousel-info .tag {
     display: inline-block;
     padding: 0.4rem 1rem;
     background: var(--mint);
@@ -477,8 +511,94 @@ p {
     margin-bottom: 0.8rem;
 }
 
-.project-info h3 {
-    font-size: 1.8rem;
+.carousel-info h3 {
+    font-size: 1.5rem;
+    color: #fff;
+}
+
+/* Modal / Lightbox */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(10, 10, 10, 0.6);
+    backdrop-filter: blur(15px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.modal-content {
+    width: 90%;
+    max-width: 1000px;
+    max-height: 90vh;
+    transform: scale(0.9);
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-overlay.active .modal-content {
+    transform: scale(1);
+}
+
+.modal-close {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: #fff;
+    font-size: 2rem;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: background 0.3s;
+}
+
+.modal-close:hover {
+    background: var(--coral);
+}
+
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.modal-media {
+    width: 100%;
+    height: 50vh;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+}
+
+.modal-media img, .modal-media video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.modal-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-details h3 {
+    font-size: 2rem;
     color: #fff;
 }
 
@@ -654,7 +774,6 @@ footer {
 
 /* Responsive */
 @media (max-width: 1024px) {
-    .projects-grid { grid-template-columns: repeat(2, 1fr); }
     .services-grid { grid-template-columns: repeat(2, 1fr); }
     .empowerment-content, .contact-container { grid-template-columns: 1fr; gap: 3rem; }
 }
@@ -664,8 +783,9 @@ footer {
     .navbar nav { display: none; }
     .hero-title { font-size: 3rem; }
     .section-title { font-size: 2.5rem; }
-    .services-grid, .projects-grid { grid-template-columns: 1fr; }
+    .services-grid { grid-template-columns: 1fr; }
     .span-2, .span-row-2, .tall { grid-column: span 1; grid-row: auto; }
+    .carousel-item { width: 300px; height: 200px; }
     .timeline-step, .timeline-step.right { width: 100%; padding: 0 0 0 4rem; margin-left: 0; justify-content: flex-start; }
     .timeline-path { left: 20px; transform: none; }
     .step-dot, .timeline-step.right .step-dot { left: -10px; right: auto; }
@@ -675,5 +795,4 @@ footer {
 @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
     #webgl-canvas { display: none; } /* Hide heavy canvas */
-    .project-item { background-size: cover; background-position: center; } /* Fallback will be handled in JS */
 }

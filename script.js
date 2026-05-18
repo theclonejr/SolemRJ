@@ -36,17 +36,9 @@ class WebGLApp {
 
         if (!this.reducedMotion) {
             this.initHeroObject();
-            this.initProjectPlanes();
             this.addEventListeners();
             this.resize();
             this.animate();
-        } else {
-            // Fallback for reduced motion
-            document.querySelectorAll('.project-item').forEach(el => {
-                el.style.backgroundImage = `url(${el.dataset.image})`;
-                el.style.backgroundSize = 'cover';
-                el.style.backgroundPosition = 'center';
-            });
         }
     }
 
@@ -90,8 +82,9 @@ class WebGLApp {
         ScrollTrigger.create({
             trigger: "#hero",
             start: "top top",
-            end: "bottom top",
+            end: "+=1500", // Increased scroll depth for more epic feel
             scrub: 1,
+            pin: true, // Epically spaced out transition
             onUpdate: (self) => {
                 const progress = self.progress;
                 this.heroPieces.forEach(piece => {
@@ -109,116 +102,6 @@ class WebGLApp {
         });
     }
 
-    initProjectPlanes() {
-        const domElements = document.querySelectorAll('.project-item');
-        const loader = new THREE.TextureLoader();
-        loader.crossOrigin = "anonymous";
-
-        // Simple Warp Shader
-        const vertexShader = `
-            varying vec2 vUv;
-            uniform float uHover;
-            void main() {
-                vUv = uv;
-                vec3 pos = position;
-                // Add a wave effect based on hover
-                pos.z += sin(pos.x * 5.0 + uHover * 3.14) * 0.1 * uHover;
-                pos.z += sin(pos.y * 5.0 + uHover * 3.14) * 0.1 * uHover;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-            }
-        `;
-
-        const fragmentShader = `
-            varying vec2 vUv;
-            uniform sampler2D tDiffuse;
-            uniform float uHover;
-            void main() {
-                vec2 uv = vUv;
-                // Slight RGB split on hover
-                float r = texture2D(tDiffuse, uv + vec2(0.01 * uHover, 0.0)).r;
-                float g = texture2D(tDiffuse, uv).g;
-                float b = texture2D(tDiffuse, uv - vec2(0.01 * uHover, 0.0)).b;
-                
-                // Desaturate slightly when not hovered
-                vec3 color = vec3(r,g,b);
-                float gray = dot(color, vec3(0.299, 0.587, 0.114));
-                vec3 finalColor = mix(vec3(gray) * 0.8, color, uHover + 0.2);
-                
-                gl_FragColor = vec4(finalColor, 1.0);
-            }
-        `;
-
-        domElements.forEach(el => {
-            const imgUrl = el.dataset.image;
-            const texture = loader.load(imgUrl);
-            
-            const geometry = new THREE.PlaneGeometry(1, 1, 32, 32);
-            const material = new THREE.ShaderMaterial({
-                vertexShader,
-                fragmentShader,
-                uniforms: {
-                    tDiffuse: { value: texture },
-                    uHover: { value: 0.0 }
-                },
-                transparent: true
-            });
-
-            const mesh = new THREE.Mesh(geometry, material);
-            this.scene.add(mesh);
-
-            const planeObj = {
-                mesh,
-                el,
-                hover: 0
-            };
-
-            this.projectPlanes.push(planeObj);
-
-            // Hover events
-            el.addEventListener('mouseenter', () => {
-                gsap.to(planeObj, { hover: 1, duration: 0.6, ease: "power2.out" });
-            });
-            el.addEventListener('mouseleave', () => {
-                gsap.to(planeObj, { hover: 0, duration: 0.6, ease: "power2.out" });
-            });
-        });
-    }
-
-    syncPlanes() {
-        // We need to map DOM coordinates to WebGL coordinates
-        // Assuming camera is looking at origin, z=10, fov=45
-        const vFov = (this.camera.fov * Math.PI) / 180;
-        const height = 2 * Math.tan(vFov / 2) * this.camera.position.z;
-        const width = height * this.camera.aspect;
-
-        const wWidth = window.innerWidth;
-        const wHeight = window.innerHeight;
-
-        this.projectPlanes.forEach(plane => {
-            const rect = plane.el.getBoundingClientRect();
-            
-            // Check if in viewport
-            if (rect.bottom < 0 || rect.top > wHeight) {
-                plane.mesh.visible = false;
-                return;
-            }
-            plane.mesh.visible = true;
-
-            // Map width/height
-            const meshWidth = (rect.width / wWidth) * width;
-            const meshHeight = (rect.height / wHeight) * height;
-            plane.mesh.scale.set(meshWidth, meshHeight, 1);
-
-            // Map position
-            const x = (rect.left / wWidth) * width - width / 2 + meshWidth / 2;
-            const y = -(rect.top / wHeight) * height + height / 2 - meshHeight / 2;
-            plane.mesh.position.set(x, y, 0);
-
-            // Update uniform
-            plane.mesh.material.uniforms.uHover.value = plane.hover;
-        });
-    }
-
     addEventListeners() {
         window.addEventListener('resize', this.resize.bind(this));
         
@@ -233,7 +116,6 @@ class WebGLApp {
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.syncPlanes(); // Sync immediately on resize
     }
 
     animate() {
@@ -248,9 +130,6 @@ class WebGLApp {
             // Auto rotate slightly
             this.heroGroup.rotation.y += 0.002;
         }
-
-        // Sync planes every frame (since scroll happens)
-        this.syncPlanes();
 
         this.renderer.render(this.scene, this.camera);
     }
@@ -320,8 +199,8 @@ document.addEventListener("DOMContentLoaded", () => {
             x: 50, opacity: 0, duration: 1, ease: "power3.out"
         });
 
-        // Bento Grids (Services and Projects)
-        gsap.utils.toArray('.bento-item, .project-info').forEach(item => {
+        // Bento Grids (Services)
+        gsap.utils.toArray('.bento-item').forEach(item => {
             gsap.from(item, {
                 scrollTrigger: { trigger: item, start: "top 85%" },
                 y: 30, opacity: 0, duration: 0.8, ease: "power3.out"
@@ -352,7 +231,76 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 6. Form Submission Mock
+    // 6. Interactive Carousel Logic
+    const track = document.querySelector('.carousel-track');
+    if (track) {
+        // Clone items to create seamless loop
+        const itemsHTML = track.innerHTML;
+        track.innerHTML += itemsHTML; // Double items
+
+        let totalWidth = track.scrollWidth / 2;
+        
+        // Recalculate on resize
+        window.addEventListener('resize', () => {
+            totalWidth = track.scrollWidth / 2;
+            carouselAnim.vars.x = () => -totalWidth;
+            carouselAnim.invalidate().restart();
+        });
+
+        const carouselAnim = gsap.to(track, {
+            x: () => -totalWidth,
+            ease: "none",
+            duration: 25,
+            repeat: -1
+        });
+
+        // Hover Effect
+        const carouselItems = document.querySelectorAll('.carousel-item');
+        carouselItems.forEach(item => {
+            item.addEventListener('mouseenter', () => {
+                gsap.to(carouselAnim, { timeScale: 0.15, duration: 0.5 });
+            });
+            item.addEventListener('mouseleave', () => {
+                gsap.to(carouselAnim, { timeScale: 1, duration: 0.5 });
+            });
+        });
+
+        // 7. Modal Integration
+        const modal = document.getElementById('project-modal');
+        const modalClose = document.getElementById('modal-close-btn');
+        const modalTitle = document.getElementById('modal-title');
+        const modalLink = document.getElementById('modal-link');
+        const modalMediaContainer = document.getElementById('modal-media-container');
+
+        carouselItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const title = item.getAttribute('data-title');
+                const imgSrc = item.getAttribute('data-image');
+                const link = item.getAttribute('data-link');
+
+                modalTitle.textContent = title;
+                modalLink.href = link;
+                modalMediaContainer.innerHTML = `<img src="${imgSrc}" alt="${title}">`;
+
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            });
+        });
+
+        modalClose.addEventListener('click', () => {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+            setTimeout(() => { modalMediaContainer.innerHTML = ''; }, 400); // Clear after exit animation
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modalClose.click();
+            }
+        });
+    }
+
+    // 8. Form Submission Mock
     const form = document.getElementById('discovery-form');
     if (form) {
         form.addEventListener('submit', (e) => {
