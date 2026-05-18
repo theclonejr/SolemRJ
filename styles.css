@@ -122,7 +122,8 @@ p {
 }
 
 .btn-primary:hover {
-    box-shadow: 0 8px 30px rgba(203, 184, 193, 0.5), 0 0 25px rgba(203, 184, 193, 0.2); text-shadow: 0 0 5px rgba(203,184,193,0.3);
+    box-shadow: 0 8px 30px rgba(203, 184, 193, 0.5), 0 0 25px rgba(203, 184, 193, 0.2);
+    text-shadow: 0 0 5px rgba(203, 184, 193, 0.3);
     transform: translateY(-2px);
 }
 
@@ -265,6 +266,14 @@ p {
     gap: 10px;
     opacity: 0.6;
     z-index: 2;
+}
+
+#btn-text-1 {
+    color: #000010;
+}
+
+#btn-text-submit {
+    color: #000010;
 }
 
 .scroll-indicator .mouse {
@@ -516,15 +525,20 @@ p {
 .carousel-item::after {
     content: '';
     position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: rgba(84, 70, 88, 0.6);
     transition: opacity 0.4s ease;
     z-index: 2;
     pointer-events: none;
 }
+
 .carousel-item:hover::after {
     opacity: 0;
 }
+
 .carousel-item:hover img {
     transform: scale(1.08);
 }
