@@ -50,20 +50,25 @@ class WebGLApp {
         // Create a central core made of fragmented geometric pieces
         const geometry = new THREE.BoxGeometry(1, 1, 1);
         const material = new THREE.MeshPhysicalMaterial({
-            color: 0x23192D, // Mint (Dark contrast)
-            metalness: 0.2,
-            roughness: 0.1,
-            transmission: 0.9,
+            color: 0x0C1024, // Solid faces
+            metalness: 0.3,
+            roughness: 0.2,
+            transmission: 0.0,
             thickness: 0.5,
-            clearcoat: 1.0,
+            clearcoat: 0.1,
             clearcoatRoughness: 0.1
         });
+        
+        const edgesGeometry = new THREE.EdgesGeometry(geometry);
+        const edgesMaterial = new THREE.LineBasicMaterial({ color: 0xCBB8C1, linewidth: 2 });
 
         // Create 27 small cubes forming a larger 3x3x3 cube
         for(let x = -1; x <= 1; x++) {
             for(let y = -1; y <= 1; y++) {
                 for(let z = -1; z <= 1; z++) {
                     const mesh = new THREE.Mesh(geometry, material);
+                    const edges = new THREE.LineSegments(edgesGeometry, edgesMaterial);
+                    mesh.add(edges);
                     mesh.position.set(x * 1.1, y * 1.1, z * 1.1);
                     
                     // Store original position for explosion
