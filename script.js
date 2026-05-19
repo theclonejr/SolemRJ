@@ -305,6 +305,51 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    // Color Engine Modal Logic
+    const convergenceBtn = document.getElementById('convergence-btn');
+    const convergenceModal = document.getElementById('convergence-modal');
+    const convergenceClose = document.getElementById('convergence-close-btn');
+    const swatches = document.querySelectorAll('.swatch');
+
+    if (convergenceBtn && convergenceModal) {
+        convergenceBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            convergenceModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+
+        convergenceClose.addEventListener('click', () => {
+            convergenceModal.classList.remove('active');
+            document.body.style.overflow = '';
+        });
+
+        convergenceModal.addEventListener('click', (e) => {
+            if (e.target === convergenceModal) {
+                convergenceClose.click();
+            }
+        });
+
+        swatches.forEach(swatch => {
+            swatch.addEventListener('click', () => {
+                document.documentElement.classList.add('theme-transitioning');
+                
+                swatches.forEach(s => s.classList.remove('active'));
+                swatch.classList.add('active');
+
+                const theme = swatch.getAttribute('data-theme');
+                if (theme === 'plum-tech') {
+                    document.documentElement.removeAttribute('data-theme');
+                } else {
+                    document.documentElement.setAttribute('data-theme', theme);
+                }
+
+                setTimeout(() => {
+                    document.documentElement.classList.remove('theme-transitioning');
+                }, 500);
+            });
+        });
+    }
+
     // 8. Form Submission Mock
     const form = document.getElementById('discovery-form');
     if (form) {
