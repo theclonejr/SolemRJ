@@ -1,144 +1,63 @@
-// Ensure GSAP and ScrollTrigger are loaded
+import { Application } from 'https://unpkg.com/@splinetool/runtime@1.5.5/build/runtime.js';
+
 gsap.registerPlugin(ScrollTrigger);
 
-class WebGLApp {
+class SplineApp {
     constructor() {
         this.canvas = document.getElementById('webgl-canvas');
-        this.scene = new THREE.Scene();
-        
-        // Setup Camera
-        this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        this.camera.position.z = 10;
-        
-        // Setup Renderer
-        this.renderer = new THREE.WebGLRenderer({
-            canvas: this.canvas,
-            alpha: true,
-            antialias: true
-        });
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        
-        // Setup Lights
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        this.scene.add(ambientLight);
-        
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
-        dirLight.position.set(5, 5, 5);
-        this.scene.add(dirLight);
+        if (!this.canvas) return;
 
+        this.app = new Application(this.canvas);
+        
         // State
-        this.mouse = new THREE.Vector2(0, 0);
-        this.targetMouse = new THREE.Vector2(0, 0);
-        this.projectPlanes = [];
-        
-        // Check for reduced motion
+        this.targetMouse = { x: 0, y: 0 };
+        this.currentMouse = { x: 0, y: 0 };
+        this.isMobile = window.innerWidth < 968;
         this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
+        
         if (!this.reducedMotion) {
-            this.initHeroObject();
-            this.addEventListeners();
-            this.resize();
-            this.animate();
+            this.init();
         }
     }
 
-    initHeroObject() {
-        this.heroGroup = new THREE.Group();
-        this.scene.add(this.heroGroup);
-        this.heroPieces = [];
-
-        // Create a central core made of fragmented geometric pieces
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshPhysicalMaterial({
-            color: 0x0C1024, // Solid faces
-            metalness: 0.3,
-            roughness: 0.2,
-            transmission: 0.0,
-            thickness: 0.5,
-            clearcoat: 0.1,
-            clearcoatRoughness: 0.1
-        });
-        
-        const edgesGeometry = new THREE.EdgesGeometry(geometry);
-        const edgesMaterial = new THREE.LineBasicMaterial({ color: 0xCBB8C1, linewidth: 2 });
-
-        // Create 27 small cubes forming a larger 3x3x3 cube
-        for(let x = -1; x <= 1; x++) {
-            for(let y = -1; y <= 1; y++) {
-                for(let z = -1; z <= 1; z++) {
-                    const mesh = new THREE.Mesh(geometry, material);
-                    const edges = new THREE.LineSegments(edgesGeometry, edgesMaterial);
-                    mesh.add(edges);
-                    mesh.position.set(x * 1.1, y * 1.1, z * 1.1);
-                    
-                    // Store original position for explosion
-                    mesh.userData = {
-                        origPos: mesh.position.clone(),
-                        dir: mesh.position.clone().normalize()
-                    };
-                    
-                    this.heroGroup.add(mesh);
-                    this.heroPieces.push(mesh);
-                }
+    async init() {
+        try {
+            await this.app.load('https://prod.spline.design/6X9VKe9EiJSDIN-i/scene.splinecode');
+            
+            // Handle Mobile Scale (scale down by 40% means zoom = 0.6)
+            if (this.isMobile) {
+                this.app.setZoom(0.6);
             }
+            
+            this.addEventListeners();
+            this.setupScrollTrigger();
+            this.updateSplineTheme();
+            
+            // Animation loop for smooth tracking
+            this.animate();
+        } catch (err) {
+            console.error("Error loading Spline scene", err);
         }
-
-        const isMobile = window.innerWidth <= 768;
-        if (isMobile) {
-            this.heroGroup.scale.set(0.6, 0.6, 0.6);
-        }
-        
-        const scrollEnd = isMobile ? "+=750" : "+=1500";
-
-        // Hero ScrollTrigger
-        ScrollTrigger.create({
-            trigger: "#hero",
-            start: "top top",
-            end: scrollEnd, // Mobile optimized
-            scrub: 1,
-            pin: true, // Epically spaced out transition
-            onUpdate: (self) => {
-                const progress = self.progress;
-                
-                // Pre-explosion vibration (0 to 0.1 progress)
-                if (progress > 0 && progress < 0.1) {
-                    const intensity = (progress / 0.1) * 0.15;
-                    this.heroGroup.position.x = (Math.random() - 0.5) * intensity;
-                    this.heroGroup.position.y = (Math.random() - 0.5) * intensity;
-                } else if (progress === 0) {
-                    this.heroGroup.position.x = 0;
-                    this.heroGroup.position.y = 0;
-                }
-
-                // Explode after 0.1 progress
-                const explosionProgress = Math.max(0, (progress - 0.1) / 0.9);
-
-                this.heroPieces.forEach(piece => {
-                    // Explode outward
-                    const targetPos = piece.userData.origPos.clone().add(piece.userData.dir.clone().multiplyScalar(explosionProgress * 15));
-                    piece.position.copy(targetPos);
-                    // Rotate individually
-                    piece.rotation.x = explosionProgress * Math.PI * 2 * piece.userData.dir.x;
-                    piece.rotation.y = explosionProgress * Math.PI * 2 * piece.userData.dir.y;
-                });
-                
-                // Fade out group by moving it deep
-                this.heroGroup.position.z = -explosionProgress * 20;
-            }
-        });
     }
 
     addEventListeners() {
-        window.addEventListener('resize', this.resize.bind(this));
+        window.addEventListener('resize', () => {
+            const wasMobile = this.isMobile;
+            this.isMobile = window.innerWidth < 968;
+            if (wasMobile !== this.isMobile) {
+                this.app.setZoom(this.isMobile ? 0.6 : 1.0);
+            }
+        });
         
+        // Desktop mouse tracking
         window.addEventListener('mousemove', (e) => {
-            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
-            // Normalize mouse from -1 to 1
+            if (this.isMobile) return;
+            // Normalize -1 to 1
             this.targetMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
             this.targetMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         });
 
-        // Add touch dragging
+        // Touch tracking
         let isDragging = false;
         let previousTouch = null;
 
@@ -153,10 +72,10 @@ class WebGLApp {
             const deltaX = touch.clientX - previousTouch.clientX;
             const deltaY = touch.clientY - previousTouch.clientY;
             
-            this.targetMouse.x += deltaX * 0.01;
-            this.targetMouse.y -= deltaY * 0.01;
+            // Add friction to touch drag
+            this.targetMouse.x += deltaX * 0.005;
+            this.targetMouse.y -= deltaY * 0.005;
             
-            // Clamp
             this.targetMouse.x = Math.max(-1, Math.min(1, this.targetMouse.x));
             this.targetMouse.y = Math.max(-1, Math.min(1, this.targetMouse.y));
             
@@ -167,28 +86,83 @@ class WebGLApp {
             isDragging = false;
             previousTouch = null;
         });
-    }
 
-    resize() {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        // Watch for Theme changes
+        const observer = new MutationObserver(() => this.updateSplineTheme());
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     }
 
     animate() {
         requestAnimationFrame(this.animate.bind(this));
+        
+        // Lerp mouse
+        this.currentMouse.x += (this.targetMouse.x - this.currentMouse.x) * 0.05;
+        this.currentMouse.y += (this.targetMouse.y - this.currentMouse.y) * 0.05;
 
-        // Smooth mouse follow for Hero
-        this.mouse.lerp(this.targetMouse, 0.05);
-        if (this.heroGroup) {
-            this.heroGroup.rotation.y = this.mouse.x * 0.5;
-            this.heroGroup.rotation.x = -this.mouse.y * 0.5;
-            
-            // Auto rotate slightly
-            this.heroGroup.rotation.y += 0.002;
+        // Try to apply variables to Spline (Spline variables must be mapped inside the file)
+        this.app.setVariable('LookX', this.currentMouse.x * 100);
+        this.app.setVariable('LookY', this.currentMouse.y * 100);
+    }
+
+    setupScrollTrigger() {
+        const scrollEnd = this.isMobile ? "+=750" : "+=1500";
+        
+        // We use GSAP to animate a proxy object, then pass values to Spline
+        const proxy = { progress: 0 };
+
+        ScrollTrigger.create({
+            trigger: "#hero",
+            start: "top top",
+            end: scrollEnd,
+            scrub: 1,
+            pin: true,
+            onUpdate: (self) => {
+                const p = self.progress;
+                
+                // Pre-vibration (0 to 0.1)
+                if (p > 0 && p < 0.1) {
+                    const intensity = (p / 0.1) * 100;
+                    this.app.setVariable('Vibration', intensity);
+                } else if (p === 0) {
+                    this.app.setVariable('Vibration', 0);
+                }
+
+                // Deconstruct / Scale away (0.1 to 1.0)
+                const explodeP = Math.max(0, (p - 0.1) / 0.9);
+                // On mobile, explode clears screen 50% faster (reaches 100 sooner)
+                const adjustedExplode = this.isMobile ? Math.min(1, explodeP * 1.5) : explodeP;
+                this.app.setVariable('Explode', adjustedExplode * 100);
+            }
+        });
+    }
+
+    updateSplineTheme() {
+        const rootStyles = getComputedStyle(document.documentElement);
+        // Fallback checks just in case variables are delayed
+        let bgDeep = rootStyles.getPropertyValue('--bg-deep').trim() || '#000010';
+        let silkGlow = rootStyles.getPropertyValue('--silk-glow').trim() || '#CBB8C1';
+        let plumLight = rootStyles.getPropertyValue('--plum-light').trim() || '#877D8B';
+
+        // Direct material manipulation for 'Body', 'Parts', 'Head' if supported
+        // In the Spline runtime, we try to set a variable if it's prepared,
+        // or attempt to query objects. Since color manipulation is complex via API,
+        // we'll push them as Variables.
+        this.app.setVariable('ColorBody', bgDeep);
+        this.app.setVariable('ColorParts', plumLight);
+        this.app.setVariable('ColorHead', silkGlow);
+        
+        // Optional CSS Hue shift fallback on canvas if materials aren't mapped in Spline
+        // We map themes to hue angles based on the current data-theme
+        const theme = document.documentElement.getAttribute('data-theme') || 'plum-tech';
+        let hueRotate = '0deg';
+        switch (theme) {
+            case 'cyber-mint': hueRotate = '120deg'; break;
+            case 'earth-tones': hueRotate = '45deg'; break;
+            case 'sunset-vibes': hueRotate = '320deg'; break;
+            case 'mono-red': hueRotate = '300deg'; break;
         }
-
-        this.renderer.render(this.scene, this.camera);
+        // Applying subtle filter directly to canvas as a high-performance visual layer
+        this.canvas.style.filter = `hue-rotate(${hueRotate}) contrast(1.1) brightness(1.1)`;
     }
 }
 
@@ -197,8 +171,8 @@ class WebGLApp {
 // ------------------------------------------------------------------
 
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Initialize WebGL
-    new WebGLApp();
+    // 1. Initialize Spline WebGL
+    new SplineApp();
 
     // 2. Set Year
     document.getElementById('year').textContent = new Date().getFullYear();
@@ -213,8 +187,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // 4. Magnetic Buttons
-    if (!window.matchMedia('(hover: none)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    // 4. Magnetic Buttons (Desktop Only)
+    if (!window.matchMedia('(hover: none)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && window.innerWidth >= 968) {
         document.querySelectorAll('.btn-magnetic').forEach(btn => {
             btn.addEventListener('mousemove', (e) => {
                 const rect = btn.getBoundingClientRect();
@@ -236,7 +210,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 5. GSAP Scroll Reveals
     if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        // Section Titles
         gsap.utils.toArray('.section-title').forEach(title => {
             gsap.from(title, {
                 scrollTrigger: { trigger: title, start: "top 85%" },
@@ -244,19 +217,18 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        // Feature List in Empowerment
         gsap.from(".feature-list li", {
             scrollTrigger: { trigger: ".feature-list", start: "top 80%" },
             x: -30, opacity: 0, duration: 0.8, stagger: 0.2, ease: "power3.out"
         });
 
-        // Empowerment Card
         gsap.from(".empowerment-visual", {
             scrollTrigger: { trigger: ".empowerment-content", start: "top 80%" },
-            x: 50, opacity: 0, duration: 1, ease: "power3.out"
+            x: window.innerWidth >= 968 ? 50 : 0, 
+            y: window.innerWidth < 968 ? 50 : 0,
+            opacity: 0, duration: 1, ease: "power3.out"
         });
 
-        // Bento Grids (Services)
         gsap.utils.toArray('.bento-item').forEach(item => {
             gsap.from(item, {
                 scrollTrigger: { trigger: item, start: "top 85%" },
@@ -264,7 +236,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        // Timeline Path Draw
         const pathFill = document.querySelector('.path-fill');
         if (pathFill) {
             const length = pathFill.getTotalLength();
@@ -275,11 +246,10 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
 
-        // Timeline Steps
         gsap.utils.toArray('.timeline-step').forEach((step) => {
             gsap.from(step.querySelector('.step-content'), {
                 scrollTrigger: { trigger: step, start: "top 85%" },
-                x: step.classList.contains('right') ? 50 : -50, opacity: 0, duration: 0.8, ease: "power3.out"
+                x: step.classList.contains('right') && window.innerWidth >= 768 ? 50 : -50, opacity: 0, duration: 0.8, ease: "power3.out"
             });
             gsap.from(step.querySelector('.step-dot'), {
                 scrollTrigger: { trigger: step, start: "top 85%" },
@@ -291,13 +261,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // 6. Interactive Carousel Logic
     const track = document.querySelector('.carousel-track');
     if (track) {
-        // Clone items to create seamless loop
         const itemsHTML = track.innerHTML;
-        track.innerHTML += itemsHTML; // Double items
+        track.innerHTML += itemsHTML;
 
         let totalWidth = track.scrollWidth / 2;
         
-        // Recalculate on resize
         window.addEventListener('resize', () => {
             totalWidth = track.scrollWidth / 2;
             carouselAnim.vars.x = () => -totalWidth;
@@ -311,15 +279,12 @@ document.addEventListener("DOMContentLoaded", () => {
             repeat: -1
         });
 
-        // Hover Effect
         const carouselItems = document.querySelectorAll('.carousel-item');
         carouselItems.forEach(item => {
-            item.addEventListener('mouseenter', () => {
-                gsap.to(carouselAnim, { timeScale: 0.15, duration: 0.5 });
-            });
-            item.addEventListener('mouseleave', () => {
-                gsap.to(carouselAnim, { timeScale: 1, duration: 0.5 });
-            });
+            item.addEventListener('mouseenter', () => gsap.to(carouselAnim, { timeScale: 0.15, duration: 0.5 }));
+            item.addEventListener('mouseleave', () => gsap.to(carouselAnim, { timeScale: 1, duration: 0.5 }));
+            item.addEventListener('touchstart', () => gsap.to(carouselAnim, { timeScale: 0.15, duration: 0.5 }), {passive: true});
+            item.addEventListener('touchend', () => gsap.to(carouselAnim, { timeScale: 1, duration: 0.5 }));
         });
 
         // 7. Modal Integration
@@ -340,20 +305,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 modalMediaContainer.innerHTML = `<img src="${imgSrc}" alt="${title}">`;
 
                 modal.classList.add('active');
-                document.body.style.overflow = 'hidden'; // Prevent background scrolling
+                document.body.style.overflow = 'hidden';
             });
         });
 
         modalClose.addEventListener('click', () => {
             modal.classList.remove('active');
             document.body.style.overflow = '';
-            setTimeout(() => { modalMediaContainer.innerHTML = ''; }, 400); // Clear after exit animation
+            setTimeout(() => { modalMediaContainer.innerHTML = ''; }, 400);
         });
 
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modalClose.click();
-            }
+            if (e.target === modal) modalClose.click();
         });
     }
 
@@ -376,9 +339,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         convergenceModal.addEventListener('click', (e) => {
-            if (e.target === convergenceModal) {
-                convergenceClose.click();
-            }
+            if (e.target === convergenceModal) convergenceClose.click();
         });
 
         swatches.forEach(swatch => {
@@ -402,15 +363,21 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // 8. Form Submission Mock
+    // 8. Form Submission Logic
     const form = document.getElementById('discovery-form');
     if (form) {
+        // Ensure success msg is hidden by default
+        const successMsg = form.querySelector('.form-success');
+        if (successMsg) {
+            successMsg.style.display = 'none';
+            successMsg.style.opacity = '0';
+        }
+
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const btn = form.querySelector('.submit-btn');
             const text = btn.querySelector('.btn-text');
             const spinner = btn.querySelector('.spinner');
-            const successMsg = form.querySelector('.form-success');
 
             text.style.display = 'none';
             spinner.style.display = 'block';
@@ -425,8 +392,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     onComplete: () => {
                         form.querySelectorAll('.form-group, .submit-btn').forEach(el => el.style.display = 'none');
                         successMsg.style.display = 'block';
-                        // Let CSS handle opacity transition
-                        void successMsg.offsetWidth; // trigger reflow
+                        void successMsg.offsetWidth; 
                         successMsg.style.opacity = '1';
                         gsap.from(successMsg, { y: 20, duration: 0.5, ease: "power2.out" });
                     }
@@ -453,6 +419,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 mobileNav.classList.remove('active');
                 document.body.style.overflow = '';
             });
+        });
+        
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 968 && mobileNav.classList.contains('active')) {
+                hamburger.classList.remove('active');
+                mobileNav.classList.remove('active');
+                document.body.style.overflow = '';
+            }
         });
     }
 });
