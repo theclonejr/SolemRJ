@@ -67,7 +67,7 @@
 }
 
 .theme-transitioning, .theme-transitioning * {
-    transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease, fill 0.5s ease, stroke 0.5s ease !important;
+    transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1), color 0.8s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.8s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.8s cubic-bezier(0.4, 0, 0.2, 1), fill 0.8s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.8s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 * {
@@ -922,8 +922,16 @@ footer {
         padding: 1.5rem 2rem;
     }
 
-    .navbar nav {
+    .desktop-nav {
         display: none;
+    }
+
+    .desktop-only {
+        display: none !important;
+    }
+
+    .hamburger {
+        display: flex;
     }
 
     .hero-title {
@@ -990,28 +998,94 @@ footer {
     height: 60px;
     border-radius: 50%;
     border: 2px solid transparent;
-    background: var(--swatch-bg);
     cursor: pointer;
     position: relative;
     transition: all 0.3s ease;
-    padding: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.swatch-inner {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: var(--swatch-color);
-    box-shadow: 0 0 10px var(--swatch-color);
 }
 
 .swatch:hover, .swatch.active {
     transform: scale(1.1);
-    border-color: var(--swatch-color);
+    border-color: #fff;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
 }
+
+/* Form Success */
+.form-success {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    color: var(--silk-glow);
+    text-align: center;
+    margin-top: 1.5rem;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+/* Mobile Navigation */
+.hamburger {
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 30px;
+    height: 20px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    z-index: 1002;
+}
+
+.hamburger span {
+    width: 100%;
+    height: 2px;
+    background: var(--text-primary);
+    transition: all 0.3s ease;
+    border-radius: 2px;
+}
+
+.mobile-nav-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: var(--bg-deep);
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-nav-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.mobile-nav-links {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    text-align: center;
+}
+
+.mobile-nav-links a {
+    font-size: 2rem;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-family: var(--font-display);
+    font-weight: 600;
+    transition: color 0.3s ease;
+}
+
+.mobile-nav-links a:hover {
+    color: var(--silk-glow);
+}
+
+.hamburger.active span:nth-child(1) { transform: translateY(9px) rotate(45deg); }
+.hamburger.active span:nth-child(2) { opacity: 0; }
+.hamburger.active span:nth-child(3) { transform: translateY(-9px) rotate(-45deg); }
 
 /* Card Themes */
 .card-theme-plum { --card-bg: var(--card-plum-bg); }
@@ -1027,12 +1101,31 @@ footer {
     color: var(--silk-glow);
 }
 
-.pulse-anim {
-    animation: pulse 2s infinite;
-}
-
+.pulse-anim { animation: pulse 2s infinite; }
 @keyframes pulse {
     0% { transform: scale(1); opacity: 1; }
     50% { transform: scale(1.2); opacity: 0.8; }
     100% { transform: scale(1); opacity: 1; }
 }
+
+.code-line-1 { animation: code-float 3s infinite ease-in-out; }
+.code-line-2 { animation: code-float 3s infinite ease-in-out 0.5s; }
+.code-line-3 { animation: code-float 3s infinite ease-in-out 1s; }
+@keyframes code-float {
+    0%, 100% { opacity: 0.5; transform: translateX(0); }
+    50% { opacity: 1; transform: translateX(5px); }
+}
+
+.cell-1 { animation: cell-pulse 2s infinite ease-in-out; }
+.cell-2 { animation: cell-pulse 2s infinite ease-in-out 0.5s; }
+.cell-3 { animation: cell-pulse 2s infinite ease-in-out 1s; }
+.cell-4 { animation: cell-pulse 2s infinite ease-in-out 1.5s; }
+@keyframes cell-pulse {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.1); }
+}
+
+.orbit-node-1 { animation: orbit1 4s infinite linear; transform-origin: 50px 50px; }
+.orbit-node-2 { animation: orbit2 4s infinite linear; transform-origin: 50px 50px; }
+@keyframes orbit1 { 100% { transform: rotate(360deg); } }
+@keyframes orbit2 { 100% { transform: rotate(-360deg); } }

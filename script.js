@@ -83,26 +83,43 @@ class WebGLApp {
             }
         }
 
+        const isMobile = window.innerWidth <= 768;
+        const scrollEnd = isMobile ? "+=750" : "+=1500";
+
         // Hero ScrollTrigger
         ScrollTrigger.create({
             trigger: "#hero",
             start: "top top",
-            end: "+=1500", // Increased scroll depth for more epic feel
+            end: scrollEnd, // Mobile optimized
             scrub: 1,
             pin: true, // Epically spaced out transition
             onUpdate: (self) => {
                 const progress = self.progress;
+                
+                // Pre-explosion vibration (0 to 0.1 progress)
+                if (progress > 0 && progress < 0.1) {
+                    const intensity = (progress / 0.1) * 0.15;
+                    this.heroGroup.position.x = (Math.random() - 0.5) * intensity;
+                    this.heroGroup.position.y = (Math.random() - 0.5) * intensity;
+                } else if (progress === 0) {
+                    this.heroGroup.position.x = 0;
+                    this.heroGroup.position.y = 0;
+                }
+
+                // Explode after 0.1 progress
+                const explosionProgress = Math.max(0, (progress - 0.1) / 0.9);
+
                 this.heroPieces.forEach(piece => {
                     // Explode outward
-                    const targetPos = piece.userData.origPos.clone().add(piece.userData.dir.clone().multiplyScalar(progress * 15));
+                    const targetPos = piece.userData.origPos.clone().add(piece.userData.dir.clone().multiplyScalar(explosionProgress * 15));
                     piece.position.copy(targetPos);
                     // Rotate individually
-                    piece.rotation.x = progress * Math.PI * 2 * piece.userData.dir.x;
-                    piece.rotation.y = progress * Math.PI * 2 * piece.userData.dir.y;
+                    piece.rotation.x = explosionProgress * Math.PI * 2 * piece.userData.dir.x;
+                    piece.rotation.y = explosionProgress * Math.PI * 2 * piece.userData.dir.y;
                 });
                 
                 // Fade out group by moving it deep
-                this.heroGroup.position.z = -progress * 20;
+                this.heroGroup.position.z = -explosionProgress * 20;
             }
         });
     }
@@ -345,7 +362,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 setTimeout(() => {
                     document.documentElement.classList.remove('theme-transitioning');
-                }, 500);
+                }, 800);
             });
         });
     }
@@ -373,10 +390,34 @@ document.addEventListener("DOMContentLoaded", () => {
                     onComplete: () => {
                         form.querySelectorAll('.form-group, .submit-btn').forEach(el => el.style.display = 'none');
                         successMsg.style.display = 'block';
-                        gsap.from(successMsg, { opacity: 0, y: 20, duration: 0.5, ease: "power2.out" });
+                        // Let CSS handle opacity transition
+                        void successMsg.offsetWidth; // trigger reflow
+                        successMsg.style.opacity = '1';
+                        gsap.from(successMsg, { y: 20, duration: 0.5, ease: "power2.out" });
                     }
                 });
             }, 1500);
+        });
+    }
+
+    // 9. Mobile Nav Logic
+    const hamburger = document.getElementById('hamburger-btn');
+    const mobileNav = document.getElementById('mobile-nav');
+    const mobileLinks = document.querySelectorAll('.mobile-nav-links a');
+
+    if (hamburger && mobileNav) {
+        hamburger.addEventListener('click', () => {
+            hamburger.classList.toggle('active');
+            mobileNav.classList.toggle('active');
+            document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
+        });
+
+        mobileLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                hamburger.classList.remove('active');
+                mobileNav.classList.remove('active');
+                document.body.style.overflow = '';
+            });
         });
     }
 });
