@@ -1,19 +1,31 @@
-import { Application } from 'https://unpkg.com/@splinetool/runtime@1.5.5/build/runtime.js';
-
 gsap.registerPlugin(ScrollTrigger);
 
-class SplineApp {
+class CanvasCoreApp {
     constructor() {
         this.canvas = document.getElementById('webgl-canvas');
         if (!this.canvas) return;
-
-        this.app = new Application(this.canvas);
+        this.ctx = this.canvas.getContext('2d');
         
         // State
         this.targetMouse = { x: 0, y: 0 };
         this.currentMouse = { x: 0, y: 0 };
         this.isMobile = window.innerWidth < 968;
         this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        this.scrollProgress = 0;
+        
+        // 3D rotation angles
+        this.rot = { x: 0, y: 0, z: 0 };
+        this.autoRotSpeed = { x: 0.003, y: 0.004 };
+        this.autoRot = { x: 0, y: 0 };
+        
+        // Nodes, connections, packets
+        this.nodes = [];
+        this.connections = [];
+        this.packets = [];
+        this.ambientParticles = [];
+        
+        // Render loop handle
+        this.animationId = null;
         
         if (!this.reducedMotion) {
             this.init();
@@ -24,317 +36,534 @@ class SplineApp {
             document.body.classList.remove('lock-interaction');
         }
     }
-
-    async init() {
-        try {
-            await this.app.load('https://prod.spline.design/6X9VKe9EiJSDIN-i/scene.splinecode');
-            
-            // Handle Mobile Scale
-            if (this.isMobile) {
-                this.app.setZoom(0.6);
-            } else {
-                this.app.setZoom(1.0);
-            }
-            
-            this.addEventListeners();
-            this.setupScrollTrigger();
-            this.updateSplineTheme();
-            
-            // Animation loop for smooth tracking
-            this.animate();
-
-            // Smooth fade transitions once the scene is loaded
-            const preloader = document.getElementById('preloader');
-            if (preloader) {
-                gsap.to(preloader, {
-                    opacity: 0,
-                    duration: 0.8,
-                    ease: "power2.inOut",
-                    onComplete: () => {
-                        preloader.remove();
-                        // Fade in WebGL Canvas
-                        if (this.canvas) {
-                            gsap.to(this.canvas, {
-                                opacity: 1,
-                                duration: 1.2,
-                                ease: "power2.out",
-                                onComplete: () => {
-                                    // Smoothly unlock all scrolls and clicks
-                                    document.body.classList.remove('lock-interaction');
-                                }
-                            });
-                        }
+    
+    init() {
+        this.resizeCanvas();
+        this.generateGeometry();
+        this.addEventListeners();
+        this.setupScrollTrigger();
+        
+        // Start render loop
+        this.animate();
+        
+        // Premium Simulated Preloader Sequence
+        // Since there are no heavy external assets to download now, we simulate a loading sequence to
+        // build anticipation and reveal the core with an ultra-smooth premium fade-in
+        const preloader = document.getElementById('preloader');
+        if (preloader) {
+            gsap.to(preloader, {
+                opacity: 0,
+                duration: 1.0,
+                delay: 1.2, // Simulated loading delay
+                ease: "power2.inOut",
+                onComplete: () => {
+                    preloader.remove();
+                    // Fade in WebGL Canvas
+                    if (this.canvas) {
+                        gsap.to(this.canvas, {
+                            opacity: 1,
+                            duration: 1.2,
+                            ease: "power2.out",
+                            onComplete: () => {
+                                // Smoothly unlock all scrolls and clicks
+                                document.body.classList.remove('lock-interaction');
+                            }
+                        });
                     }
-                });
-            } else {
-                document.body.classList.remove('lock-interaction');
-            }
-        } catch (err) {
-            console.error("Error loading Spline scene", err);
-            // Fallback: Unlock screen if CDN fails to keep site fully functional
-            const preloader = document.getElementById('preloader');
-            if (preloader) preloader.remove();
+                }
+            });
+        } else {
             document.body.classList.remove('lock-interaction');
+            if (this.canvas) this.canvas.style.opacity = 1;
         }
     }
-
-    addEventListeners() {
-        window.addEventListener('resize', () => {
-            const wasMobile = this.isMobile;
-            this.isMobile = window.innerWidth < 968;
-            if (wasMobile !== this.isMobile) {
-                this.app.setZoom(this.isMobile ? 0.6 : 1.0);
-            }
-        });
+    
+    resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        this.width = window.innerWidth;
+        this.height = window.innerHeight;
         
-        // Desktop mouse tracking + manual event forwarding to bypass pointer-events: none
-        window.addEventListener('mousemove', (e) => {
+        this.canvas.width = this.width * dpr;
+        this.canvas.height = this.height * dpr;
+        this.ctx.scale(dpr, dpr);
+        
+        this.centerX = this.width / 2;
+        this.centerY = this.height / 2;
+        
+        // Scale core dimensions based on mobile vs desktop
+        this.isMobile = window.innerWidth < 968;
+        this.baseScale = this.isMobile ? 0.6 : 1.0;
+    }
+    
+    generateGeometry() {
+        this.nodes = [];
+        this.connections = [];
+        this.packets = [];
+        this.ambientParticles = [];
+        
+        // 1. Central Processor Node (Energy Core at 0,0,0)
+        // 2. Microprocessor Node Grid / Inner Sphere
+        // Let's create an inner cluster (Hyper-cube or Concentric Rings)
+        const nodeCountInner = 14;
+        const radiusInner = 80;
+        for (let i = 0; i < nodeCountInner; i++) {
+            // Fibonacci sphere distribution for perfect node spacing
+            const phi = Math.acos(-1 + (2 * i) / nodeCountInner);
+            const theta = Math.sqrt(nodeCountInner * Math.PI) * phi;
+            
+            const x = radiusInner * Math.sin(phi) * Math.cos(theta);
+            const y = radiusInner * Math.sin(phi) * Math.sin(theta);
+            const z = radiusInner * Math.cos(phi);
+            
+            this.nodes.push(this.createNode(x, y, z, 'inner'));
+        }
+        
+        // 3. Outer Automation Core Ring / Cluster
+        const nodeCountOuter = 22;
+        const radiusOuter = 160;
+        for (let i = 0; i < nodeCountOuter; i++) {
+            const phi = Math.acos(-1 + (2 * i) / nodeCountOuter);
+            const theta = Math.sqrt(nodeCountOuter * Math.PI) * phi;
+            
+            const x = radiusOuter * Math.sin(phi) * Math.cos(theta);
+            const y = radiusOuter * Math.sin(phi) * Math.sin(theta);
+            const z = radiusOuter * Math.cos(phi);
+            
+            this.nodes.push(this.createNode(x, y, z, 'outer'));
+        }
+        
+        // 4. Connect adjacent nodes in 3D space
+        const maxDist = 125;
+        for (let i = 0; i < this.nodes.length; i++) {
+            for (let j = i + 1; j < this.nodes.length; j++) {
+                const dx = this.nodes[i].x - this.nodes[j].x;
+                const dy = this.nodes[i].y - this.nodes[j].y;
+                const dz = this.nodes[i].z - this.nodes[j].z;
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                
+                if (dist < maxDist) {
+                    this.connections.push({
+                        a: i,
+                        b: j,
+                        length: dist,
+                        maxDist: maxDist
+                    });
+                }
+            }
+        }
+        
+        // 5. Generate Traveling Data Packets along connections
+        const packetCount = this.isMobile ? 12 : 24;
+        for (let i = 0; i < packetCount; i++) {
+            if (this.connections.length === 0) break;
+            const connIndex = Math.floor(Math.random() * this.connections.length);
+            this.packets.push({
+                connIndex: connIndex,
+                progress: Math.random(),
+                speed: 0.008 + Math.random() * 0.012,
+                size: 2 + Math.random() * 3,
+                direction: Math.random() > 0.5 ? 1 : -1
+            });
+        }
+        
+        // 6. Generate Ambient Floating Data Particles (Deep-space matrix background)
+        const particleCount = this.isMobile ? 40 : 100;
+        for (let i = 0; i < particleCount; i++) {
+            const range = 400;
+            this.ambientParticles.push({
+                x: (Math.random() - 0.5) * range * 2,
+                y: (Math.random() - 0.5) * range * 2,
+                z: (Math.random() - 0.5) * range * 2,
+                size: 0.5 + Math.random() * 1.5,
+                speedX: (Math.random() - 0.5) * 0.2,
+                speedY: (Math.random() - 0.5) * 0.2,
+                speedZ: (Math.random() - 0.5) * 0.2
+            });
+        }
+    }
+    
+    createNode(x, y, z, type) {
+        // Calculate explosion dispersion vectors
+        const len = Math.sqrt(x*x + y*y + z*z);
+        const dirX = x / (len || 1) + (Math.random() - 0.5) * 0.2;
+        const dirY = y / (len || 1) + (Math.random() - 0.5) * 0.2;
+        const dirZ = z / (len || 1) + (Math.random() - 0.5) * 0.2;
+        
+        return {
+            x: x,
+            y: y,
+            z: z,
+            baseX: x,
+            baseY: y,
+            baseZ: z,
+            dirX: dirX,
+            dirY: dirY,
+            dirZ: dirZ,
+            type: type,
+            size: type === 'inner' ? 4 : 5,
+            pulseOffset: Math.random() * Math.PI * 2
+        };
+    }
+    
+    addEventListeners() {
+        this.resizeHandler = () => this.resizeCanvas();
+        window.addEventListener('resize', this.resizeHandler);
+        
+        // Mouse tracking for Desktop
+        this.mousemoveHandler = (e) => {
             if (this.isMobile) return;
             // Normalize -1 to 1
             this.targetMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
             this.targetMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-            // Forward event manually so Spline tracks mouse vectors cleanly
-            if (this.canvas) {
-                const forwardedEvent = new MouseEvent('mousemove', {
-                    clientX: e.clientX,
-                    clientY: e.clientY,
-                    screenX: e.screenX,
-                    screenY: e.screenY,
-                    bubbles: true,
-                    cancelable: true
-                });
-                this.canvas.dispatchEvent(forwardedEvent);
-            }
-        });
-
-        // Touch tracking + manual forwarding
-        let isDragging = false;
-        let previousTouch = null;
-
-        window.addEventListener('touchstart', (e) => {
-            isDragging = true;
-            previousTouch = e.touches[0];
-
-            if (this.canvas && e.touches.length > 0) {
-                const touch = e.touches[0];
-                const forwardedTouch = new Touch({
-                    identifier: touch.identifier,
-                    target: this.canvas,
-                    clientX: touch.clientX,
-                    clientY: touch.clientY,
-                    screenX: touch.screenX,
-                    screenY: touch.screenY,
-                    pageX: touch.pageX,
-                    pageY: touch.pageY
-                });
-                const forwardedEvent = new TouchEvent('touchstart', {
-                    touches: [forwardedTouch],
-                    targetTouches: [forwardedTouch],
-                    changedTouches: [forwardedTouch],
-                    bubbles: true,
-                    cancelable: true
-                });
-                this.canvas.dispatchEvent(forwardedEvent);
-            }
-        }, {passive: true});
-
-        window.addEventListener('touchmove', (e) => {
-            if (!isDragging || !previousTouch) return;
-            const touch = e.touches[0];
-            const deltaX = touch.clientX - previousTouch.clientX;
-            const deltaY = touch.clientY - previousTouch.clientY;
-            
-            // Drag interpolation with interactive friction
-            this.targetMouse.x += deltaX * 0.006;
-            this.targetMouse.y -= deltaY * 0.006;
-            
-            this.targetMouse.x = Math.max(-1, Math.min(1, this.targetMouse.x));
-            this.targetMouse.y = Math.max(-1, Math.min(1, this.targetMouse.y));
-            
-            previousTouch = touch;
-
-            if (this.canvas && e.touches.length > 0) {
-                const forwardedTouch = new Touch({
-                    identifier: touch.identifier,
-                    target: this.canvas,
-                    clientX: touch.clientX,
-                    clientY: touch.clientY,
-                    screenX: touch.screenX,
-                    screenY: touch.screenY,
-                    pageX: touch.pageX,
-                    pageY: touch.pageY
-                });
-                const forwardedEvent = new TouchEvent('touchmove', {
-                    touches: [forwardedTouch],
-                    targetTouches: [forwardedTouch],
-                    changedTouches: [forwardedTouch],
-                    bubbles: true,
-                    cancelable: true
-                });
-                this.canvas.dispatchEvent(forwardedEvent);
-            }
-        }, {passive: true});
-
-        window.addEventListener('touchend', () => {
-            isDragging = false;
-            previousTouch = null;
-
-            if (this.canvas) {
-                const forwardedEvent = new TouchEvent('touchend', {
-                    bubbles: true,
-                    cancelable: true
-                });
-                this.canvas.dispatchEvent(forwardedEvent);
-            }
-        });
-
-        // Watch for Theme changes
-        const observer = new MutationObserver(() => this.updateSplineTheme());
-        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    }
-
-    animate() {
-        requestAnimationFrame(this.animate.bind(this));
+        };
+        window.addEventListener('mousemove', this.mousemoveHandler);
         
-        // Smooth lerping coordinates
-        this.currentMouse.x += (this.targetMouse.x - this.currentMouse.x) * 0.05;
-        this.currentMouse.y += (this.targetMouse.y - this.currentMouse.y) * 0.05;
-
-        // Try standard Spline variables
-        try {
-            this.app.setVariable('LookX', this.currentMouse.x * 100);
-            this.app.setVariable('LookY', this.currentMouse.y * 100);
-            this.app.setVariable('mouseX', this.currentMouse.x * 100);
-            this.app.setVariable('mouseY', this.currentMouse.y * 100);
-        } catch (e) {}
-
-        // Fallback target targeting (LookAt constraints and direct bone rotators)
-        try {
-            const lookAtTarget = this.app.findObjectByName('lookAt') || 
-                                 this.app.findObjectByName('LookAt') || 
-                                 this.app.findObjectByName('target') || 
-                                 this.app.findObjectByName('Target');
-            if (lookAtTarget) {
-                lookAtTarget.position.x = this.currentMouse.x * 400;
-                lookAtTarget.position.y = this.currentMouse.y * 400;
-            } else {
-                const head = this.app.findObjectByName('Head') || this.app.findObjectByName('head');
-                if (head) {
-                    head.rotation.y = this.currentMouse.x * 0.4;
-                    head.rotation.x = -this.currentMouse.y * 0.4;
-                }
-            }
-        } catch (e) {}
+        // Touch swipe tracking for Mobile
+        let touchStart = { x: 0, y: 0 };
+        this.touchstartHandler = (e) => {
+            if (!this.isMobile || e.touches.length === 0) return;
+            touchStart.x = e.touches[0].clientX;
+            touchStart.y = e.touches[0].clientY;
+        };
+        this.touchmoveHandler = (e) => {
+            if (!this.isMobile || e.touches.length === 0) return;
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            
+            const dx = touchX - touchStart.x;
+            const dy = touchY - touchStart.y;
+            
+            // Adjust camera rotation targets directly on touch swipe
+            this.targetMouse.x += dx * 0.005;
+            this.targetMouse.y -= dy * 0.005;
+            
+            this.targetMouse.x = Math.max(-1.5, Math.min(1.5, this.targetMouse.x));
+            this.targetMouse.y = Math.max(-1.5, Math.min(1.5, this.targetMouse.y));
+            
+            touchStart.x = touchX;
+            touchStart.y = touchY;
+        };
+        window.addEventListener('touchstart', this.touchstartHandler, { passive: true });
+        window.addEventListener('touchmove', this.touchmoveHandler, { passive: true });
     }
-
+    
     setupScrollTrigger() {
-        // Strict Mobile-First Non-Pinning Scroll Trigger
-        // Stripped out all hero pinnings, heights, and scroll trap constraints.
-        // Seamlessly deconstructs the robot canvas as the layout scrolls naturally.
         ScrollTrigger.create({
             trigger: "#hero",
             start: "top top",
             end: "bottom top",
             scrub: true,
             onUpdate: (self) => {
-                const p = self.progress;
-                
-                // Vibration physics
-                if (p > 0 && p < 0.2) {
-                    const intensity = (p / 0.2) * 100;
-                    this.app.setVariable('Vibration', intensity);
-                } else if (p === 0) {
-                    this.app.setVariable('Vibration', 0);
-                } else {
-                    this.app.setVariable('Vibration', 100);
-                }
-
-                // Explode parameter mapped to scroll
-                this.app.setVariable('Explode', p * 100);
+                this.scrollProgress = self.progress;
             }
         });
     }
-
-    updateSplineTheme() {
-        const theme = document.documentElement.getAttribute('data-theme') || 'plum-tech';
+    
+    // 3D rotation math projected onto 2D viewport
+    project(x, y, z, rotX, rotY) {
+        // Rotate Y
+        let cosY = Math.cos(rotY);
+        let sinY = Math.sin(rotY);
+        let x1 = x * cosY + z * sinY;
+        let z1 = -x * sinY + z * cosY;
         
-        let bodyColor, partsColor, headColor;
-        let hueRotate = '0deg';
-        let saturate = '1';
-        let contrast = '1';
-        let brightness = '1';
-
-        switch (theme) {
-            case 'plum-tech':
-                bodyColor = '#000010';
-                partsColor = '#0C1024';
-                headColor = '#D25492'; // Neon Plum
-                hueRotate = '0deg';
-                saturate = '1';
-                contrast = '1.1';
-                brightness = '1';
-                break;
-            case 'cyber-mint':
-                bodyColor = '#0B0B0C';
-                partsColor = '#121215';
-                headColor = '#00FF87'; // Electric Mint
-                hueRotate = '110deg';
-                saturate = '1.8';
-                contrast = '1.2';
-                brightness = '1';
-                break;
-            case 'earth-tones':
-                bodyColor = '#2A1713';
-                partsColor = '#5E3023';
-                headColor = '#D4AF37'; // Gold Accent
-                hueRotate = '30deg';
-                saturate = '1.3';
-                contrast = '1.1';
-                brightness = '0.9';
-                break;
-            case 'sunset-vibes':
-                bodyColor = '#320007';
-                partsColor = '#4F000B';
-                headColor = '#FF7F51'; // Radiant Amber
-                hueRotate = '330deg';
-                saturate = '1.8';
-                contrast = '1.2';
-                brightness = '1';
-                break;
-            case 'mono-red':
-                bodyColor = '#0B090A';
-                partsColor = '#161A1D';
-                headColor = '#E5383B'; // Neon Red
-                hueRotate = '345deg';
-                saturate = '2.5';
-                contrast = '1.4';
-                brightness = '0.9';
-                break;
+        // Rotate X
+        let cosX = Math.cos(rotX);
+        let sinX = Math.sin(rotX);
+        let y2 = y * cosX - z1 * sinX;
+        let z2 = y * sinX + z1 * cosX;
+        
+        // Scale down mobile core by 40% (baseScale = 0.6)
+        const finalScale = this.baseScale;
+        x1 *= finalScale;
+        y2 *= finalScale;
+        z2 *= finalScale;
+        
+        // Perspective Math
+        const fov = 350;
+        const cameraDist = 280;
+        const scale = fov / (fov + z2 + cameraDist);
+        
+        return {
+            x: this.centerX + x1 * scale,
+            y: this.centerY + y2 * scale,
+            depth: z2,
+            scale: scale
+        };
+    }
+    
+    animate() {
+        // CPU Optimization: Stop render operations completely if canvas is scrolled out of viewport
+        if (this.scrollProgress >= 1.0) {
+            this.animationId = requestAnimationFrame(this.animate.bind(this));
+            return;
         }
-
-        // Try applying parameters
-        try {
-            this.app.setVariable('ColorBody', bodyColor);
-            this.app.setVariable('ColorParts', partsColor);
-            this.app.setVariable('ColorHead', headColor);
-        } catch (e) {}
-
-        // Fallback: direct material manip
-        try {
-            const bodyObj = this.app.findObjectByName('Body') || this.app.findObjectByName('body');
-            const partsObj = this.app.findObjectByName('Parts') || this.app.findObjectByName('parts');
-            const headObj = this.app.findObjectByName('Head') || this.app.findObjectByName('head');
+        
+        this.ctx.clearRect(0, 0, this.width, this.height);
+        
+        // Update automatic floating rotations
+        this.autoRot.x += this.autoRotSpeed.x;
+        this.autoRot.y += this.autoRotSpeed.y;
+        
+        // Smoothly interpolate (lerp) cursor tracking vectors
+        this.currentMouse.x += (this.targetMouse.x - this.currentMouse.x) * 0.06;
+        this.currentMouse.y += (this.targetMouse.y - this.currentMouse.y) * 0.06;
+        
+        // Define actual rotation angles
+        const rx = this.currentMouse.y * 0.6 + this.autoRot.x;
+        const ry = this.currentMouse.x * 0.6 + this.autoRot.y;
+        
+        // Fetch current CSS theme color custom properties dynamically from layout root
+        const styles = getComputedStyle(document.documentElement);
+        const silkGlow = styles.getPropertyValue('--silk-glow').trim() || '#D25492';
+        const plumLight = styles.getPropertyValue('--plum-light').trim() || '#A3B19B';
+        const textPrimary = styles.getPropertyValue('--text-primary').trim() || '#CBB8C1';
+        
+        // Scroll physics mapping: vibration state and explosive dispersion
+        let vibration = 0;
+        let dispersion = 0;
+        
+        if (this.scrollProgress > 0 && this.scrollProgress < 0.2) {
+            // Vibration Phase (0.0 to 0.2)
+            vibration = (this.scrollProgress / 0.2) * 8.0; // max vibration intensity
+        } else if (this.scrollProgress >= 0.2) {
+            // Explosive Dispersion Phase (0.2 to 1.0)
+            const dispProg = (this.scrollProgress - 0.2) / 0.8;
+            dispersion = dispProg * 900.0; // explosive dispersion speed/distance
             
-            if (bodyObj && bodyObj.material) bodyObj.material.color = bodyColor;
-            if (partsObj && partsObj.material) partsObj.material.color = partsColor;
-            if (headObj && headObj.material) headObj.material.color = headColor;
-        } catch (e) {}
-
-        // Highly calibrated WebGL CSS color filter transform
-        if (this.canvas) {
-            this.canvas.style.filter = `hue-rotate(${hueRotate}) saturate(${saturate}) contrast(${contrast}) brightness(${brightness})`;
+            // Seamlessly fade out the canvas as dispersion completes
+            if (this.canvas) {
+                this.canvas.style.opacity = Math.max(0, 1 - dispProg * 1.5);
+            }
+        } else {
+            if (this.canvas && this.canvas.style.opacity !== '1') {
+                this.canvas.style.opacity = '1';
+            }
         }
+        
+        // Draw Ambient Floating Data Particles
+        this.ctx.fillStyle = this.hexToRGBA(textPrimary, 0.2);
+        this.ambientParticles.forEach(p => {
+            // Update positions
+            p.x += p.speedX;
+            p.y += p.speedY;
+            p.z += p.speedZ;
+            
+            // Loop particles inside boundary box
+            const boundary = 400;
+            if (Math.abs(p.x) > boundary) p.speedX *= -1;
+            if (Math.abs(p.y) > boundary) p.speedY *= -1;
+            if (Math.abs(p.z) > boundary) p.speedZ *= -1;
+            
+            // Apply dispersion
+            let px = p.x;
+            let py = p.y;
+            let pz = p.z;
+            
+            if (dispersion > 0) {
+                const len = Math.sqrt(p.x*p.x + p.y*p.y + p.z*p.z) || 1;
+                px += (p.x / len) * dispersion * 1.2;
+                py += (p.y / len) * dispersion * 1.2;
+                pz += (p.z / len) * dispersion * 1.2;
+            }
+            
+            const proj = this.project(px, py, pz, rx, ry);
+            
+            this.ctx.beginPath();
+            this.ctx.arc(proj.x, proj.y, p.size * proj.scale, 0, Math.PI * 2);
+            this.ctx.fill();
+        });
+        
+        // Calculate current projected 3D nodes
+        const projectedNodes = this.nodes.map((node, index) => {
+            // Base coordinate + dispersion vector
+            let nx = node.baseX;
+            let ny = node.baseY;
+            let nz = node.baseZ;
+            
+            if (dispersion > 0) {
+                nx += node.dirX * dispersion;
+                ny += node.dirY * dispersion;
+                nz += node.dirZ * dispersion;
+            }
+            
+            // Add scroll-driven high-frequency vibration
+            if (vibration > 0) {
+                nx += (Math.random() - 0.5) * vibration;
+                ny += (Math.random() - 0.5) * vibration;
+                nz += (Math.random() - 0.5) * vibration;
+            }
+            
+            // Project
+            const proj = this.project(nx, ny, nz, rx, ry);
+            
+            // Magnetic cursor warping (desktop only, warping nodes near the cursor)
+            if (!this.isMobile) {
+                const mouseWorldX = this.centerX + this.currentMouse.x * 250;
+                const mouseWorldY = this.centerY - this.currentMouse.y * 250;
+                const dx = proj.x - mouseWorldX;
+                const dy = proj.y - mouseWorldY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < 180) {
+                    const warpIntensity = (1 - dist / 180) * 22;
+                    proj.x += (dx / (dist || 1)) * warpIntensity;
+                    proj.y += (dy / (dist || 1)) * warpIntensity;
+                }
+            }
+            
+            return proj;
+        });
+        
+        // Draw Connections / Network Lines
+        this.ctx.lineWidth = 1.0;
+        this.connections.forEach(conn => {
+            const nodeA = projectedNodes[conn.a];
+            const nodeB = projectedNodes[conn.b];
+            
+            // Node depth testing to dynamically fade background lines
+            const averageDepth = (nodeA.depth + nodeB.depth) / 2;
+            const depthFade = Math.max(0.05, 1 - (averageDepth + 150) / 300);
+            
+            // Line opacity drops as nodes move further apart during deconstruction
+            let dispersionFade = 1.0;
+            if (dispersion > 0) {
+                dispersionFade = Math.max(0, 1 - dispersion / 450);
+            }
+            
+            if (dispersionFade <= 0) return;
+            
+            const alpha = 0.22 * depthFade * dispersionFade;
+            this.ctx.strokeStyle = this.hexToRGBA(silkGlow, alpha);
+            this.ctx.beginPath();
+            this.ctx.moveTo(nodeA.x, nodeA.y);
+            this.ctx.lineTo(nodeB.x, nodeB.y);
+            this.ctx.stroke();
+        });
+        
+        // Draw Nodes
+        projectedNodes.forEach((node, idx) => {
+            const depthFade = Math.max(0.1, 1 - (node.depth + 150) / 300);
+            
+            let dispersionFade = 1.0;
+            if (dispersion > 0) {
+                dispersionFade = Math.max(0, 1 - dispersion / 600);
+            }
+            
+            if (dispersionFade <= 0) return;
+            
+            const originalNode = this.nodes[idx];
+            // Slow organic throb animation
+            const throb = 1 + Math.sin(Date.now() * 0.003 + originalNode.pulseOffset) * 0.15;
+            const size = originalNode.size * node.scale * throb;
+            
+            this.ctx.save();
+            
+            // Radiant neon glow effect
+            this.ctx.shadowColor = silkGlow;
+            this.ctx.shadowBlur = 12 * depthFade * dispersionFade;
+            this.ctx.fillStyle = this.hexToRGBA(textPrimary, 0.9 * depthFade * dispersionFade);
+            
+            this.ctx.beginPath();
+            this.ctx.arc(node.x, node.y, size, 0, Math.PI * 2);
+            this.ctx.fill();
+            
+            // Central microprocessor node core highlights
+            if (originalNode.type === 'inner') {
+                this.ctx.fillStyle = this.hexToRGBA(silkGlow, 1.0 * depthFade * dispersionFade);
+                this.ctx.beginPath();
+                this.ctx.arc(node.x, node.y, size * 0.45, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            
+            this.ctx.restore();
+        });
+        
+        // Draw Traveling Data Packets
+        this.packets.forEach(packet => {
+            const conn = this.connections[packet.connIndex];
+            if (!conn) return;
+            
+            const nodeA = projectedNodes[conn.a];
+            const nodeB = projectedNodes[conn.b];
+            
+            // Calculate current packet position along line vector
+            const t = packet.progress;
+            const x = nodeA.x + (nodeB.x - nodeA.x) * t;
+            const y = nodeA.y + (nodeB.y - nodeA.y) * t;
+            
+            // Fading rules for packets
+            const depth = nodeA.depth + (nodeB.depth - nodeA.depth) * t;
+            const depthFade = Math.max(0.1, 1 - (depth + 150) / 300);
+            
+            let dispersionFade = 1.0;
+            if (dispersion > 0) {
+                dispersionFade = Math.max(0, 1 - dispersion / 450);
+            }
+            
+            if (dispersionFade <= 0) return;
+            
+            // Render packet
+            this.ctx.save();
+            this.ctx.shadowColor = plumLight;
+            this.ctx.shadowBlur = 15 * depthFade * dispersionFade;
+            this.ctx.fillStyle = this.hexToRGBA(plumLight, 0.95 * depthFade * dispersionFade);
+            
+            const size = packet.size * ((nodeA.scale + nodeB.scale) / 2) * depthFade;
+            this.ctx.beginPath();
+            this.ctx.arc(x, y, size, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.restore();
+            
+            // Update progress
+            packet.progress += packet.speed * packet.direction;
+            
+            // Loop data packets along network paths
+            if (packet.progress > 1.0 || packet.progress < 0.0) {
+                packet.direction *= -1;
+                packet.progress = Math.max(0, Math.min(1, packet.progress));
+                
+                // Keep the packets fresh by jumping to a random connected branch occasionally
+                if (Math.random() > 0.4) {
+                    const currentNodeIndex = packet.direction === 1 ? conn.a : conn.b;
+                    const branches = this.connections
+                        .map((c, i) => ({ c, i }))
+                        .filter(item => item.c.a === currentNodeIndex || item.c.b === currentNodeIndex);
+                        
+                    if (branches.length > 0) {
+                        const nextBranch = branches[Math.floor(Math.random() * branches.length)];
+                        packet.connIndex = nextBranch.i;
+                        packet.progress = nextBranch.c.a === currentNodeIndex ? 0.0 : 1.0;
+                        packet.direction = nextBranch.c.a === currentNodeIndex ? 1 : -1;
+                    }
+                }
+            }
+        });
+        
+        this.animationId = requestAnimationFrame(this.animate.bind(this));
+    }
+    
+    // Clean up all events and animation frames on screen tear-down
+    destroy() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+        }
+        window.removeEventListener('resize', this.resizeHandler);
+        window.removeEventListener('mousemove', this.mousemoveHandler);
+        window.removeEventListener('touchstart', this.touchstartHandler);
+        window.removeEventListener('touchmove', this.touchmoveHandler);
+    }
+    
+    // Helper to translate Hex theme parameters to rgba canvas styles cleanly
+    hexToRGBA(hex, alpha) {
+        hex = hex.replace('#', '').trim();
+        if (hex.length === 3) {
+            hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+        }
+        const r = parseInt(hex.substring(0, 2), 16) || 0;
+        const g = parseInt(hex.substring(2, 4), 16) || 0;
+        const b = parseInt(hex.substring(4, 6), 16) || 0;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 }
 
@@ -343,8 +572,8 @@ class SplineApp {
 // ------------------------------------------------------------------
 
 document.addEventListener("DOMContentLoaded", () => {
-    // 1. Initialize Spline WebGL
-    new SplineApp();
+    // 1. Initialize High-Performance 3D Core Canvas
+    new CanvasCoreApp();
 
     // 2. Set Year
     document.getElementById('year').textContent = new Date().getFullYear();
