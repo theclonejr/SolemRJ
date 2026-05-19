@@ -84,6 +84,10 @@ class WebGLApp {
         }
 
         const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+            this.heroGroup.scale.set(0.6, 0.6, 0.6);
+        }
+        
         const scrollEnd = isMobile ? "+=750" : "+=1500";
 
         // Hero ScrollTrigger
@@ -128,9 +132,40 @@ class WebGLApp {
         window.addEventListener('resize', this.resize.bind(this));
         
         window.addEventListener('mousemove', (e) => {
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) return;
             // Normalize mouse from -1 to 1
             this.targetMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
             this.targetMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // Add touch dragging
+        let isDragging = false;
+        let previousTouch = null;
+
+        window.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            previousTouch = e.touches[0];
+        }, {passive: true});
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isDragging || !previousTouch) return;
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - previousTouch.clientX;
+            const deltaY = touch.clientY - previousTouch.clientY;
+            
+            this.targetMouse.x += deltaX * 0.01;
+            this.targetMouse.y -= deltaY * 0.01;
+            
+            // Clamp
+            this.targetMouse.x = Math.max(-1, Math.min(1, this.targetMouse.x));
+            this.targetMouse.y = Math.max(-1, Math.min(1, this.targetMouse.y));
+            
+            previousTouch = touch;
+        }, {passive: true});
+
+        window.addEventListener('touchend', () => {
+            isDragging = false;
+            previousTouch = null;
         });
     }
 
