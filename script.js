@@ -17,6 +17,11 @@ class SplineApp {
         
         if (!this.reducedMotion) {
             this.init();
+        } else {
+            // Remove preloader and unlock scrolling immediately if user requested reduced motion
+            const preloader = document.getElementById('preloader');
+            if (preloader) preloader.remove();
+            document.body.classList.remove('lock-interaction');
         }
     }
 
@@ -24,9 +29,11 @@ class SplineApp {
         try {
             await this.app.load('https://prod.spline.design/6X9VKe9EiJSDIN-i/scene.splinecode');
             
-            // Handle Mobile Scale (scale down by 40% means zoom = 0.6)
+            // Handle Mobile Scale
             if (this.isMobile) {
                 this.app.setZoom(0.6);
+            } else {
+                this.app.setZoom(1.0);
             }
             
             this.addEventListeners();
@@ -35,8 +42,39 @@ class SplineApp {
             
             // Animation loop for smooth tracking
             this.animate();
+
+            // Smooth fade transitions once the scene is loaded
+            const preloader = document.getElementById('preloader');
+            if (preloader) {
+                gsap.to(preloader, {
+                    opacity: 0,
+                    duration: 0.8,
+                    ease: "power2.inOut",
+                    onComplete: () => {
+                        preloader.remove();
+                        // Fade in WebGL Canvas
+                        if (this.canvas) {
+                            gsap.to(this.canvas, {
+                                opacity: 1,
+                                duration: 1.2,
+                                ease: "power2.out",
+                                onComplete: () => {
+                                    // Smoothly unlock all scrolls and clicks
+                                    document.body.classList.remove('lock-interaction');
+                                }
+                            });
+                        }
+                    }
+                });
+            } else {
+                document.body.classList.remove('lock-interaction');
+            }
         } catch (err) {
             console.error("Error loading Spline scene", err);
+            // Fallback: Unlock screen if CDN fails to keep site fully functional
+            const preloader = document.getElementById('preloader');
+            if (preloader) preloader.remove();
+            document.body.classList.remove('lock-interaction');
         }
     }
 
@@ -49,21 +87,56 @@ class SplineApp {
             }
         });
         
-        // Desktop mouse tracking
+        // Desktop mouse tracking + manual event forwarding to bypass pointer-events: none
         window.addEventListener('mousemove', (e) => {
             if (this.isMobile) return;
             // Normalize -1 to 1
             this.targetMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
             this.targetMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            // Forward event manually so Spline tracks mouse vectors cleanly
+            if (this.canvas) {
+                const forwardedEvent = new MouseEvent('mousemove', {
+                    clientX: e.clientX,
+                    clientY: e.clientY,
+                    screenX: e.screenX,
+                    screenY: e.screenY,
+                    bubbles: true,
+                    cancelable: true
+                });
+                this.canvas.dispatchEvent(forwardedEvent);
+            }
         });
 
-        // Touch tracking
+        // Touch tracking + manual forwarding
         let isDragging = false;
         let previousTouch = null;
 
         window.addEventListener('touchstart', (e) => {
             isDragging = true;
             previousTouch = e.touches[0];
+
+            if (this.canvas && e.touches.length > 0) {
+                const touch = e.touches[0];
+                const forwardedTouch = new Touch({
+                    identifier: touch.identifier,
+                    target: this.canvas,
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    screenX: touch.screenX,
+                    screenY: touch.screenY,
+                    pageX: touch.pageX,
+                    pageY: touch.pageY
+                });
+                const forwardedEvent = new TouchEvent('touchstart', {
+                    touches: [forwardedTouch],
+                    targetTouches: [forwardedTouch],
+                    changedTouches: [forwardedTouch],
+                    bubbles: true,
+                    cancelable: true
+                });
+                this.canvas.dispatchEvent(forwardedEvent);
+            }
         }, {passive: true});
 
         window.addEventListener('touchmove', (e) => {
@@ -72,19 +145,48 @@ class SplineApp {
             const deltaX = touch.clientX - previousTouch.clientX;
             const deltaY = touch.clientY - previousTouch.clientY;
             
-            // Add friction to touch drag
-            this.targetMouse.x += deltaX * 0.005;
-            this.targetMouse.y -= deltaY * 0.005;
+            // Drag interpolation with interactive friction
+            this.targetMouse.x += deltaX * 0.006;
+            this.targetMouse.y -= deltaY * 0.006;
             
             this.targetMouse.x = Math.max(-1, Math.min(1, this.targetMouse.x));
             this.targetMouse.y = Math.max(-1, Math.min(1, this.targetMouse.y));
             
             previousTouch = touch;
+
+            if (this.canvas && e.touches.length > 0) {
+                const forwardedTouch = new Touch({
+                    identifier: touch.identifier,
+                    target: this.canvas,
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    screenX: touch.screenX,
+                    screenY: touch.screenY,
+                    pageX: touch.pageX,
+                    pageY: touch.pageY
+                });
+                const forwardedEvent = new TouchEvent('touchmove', {
+                    touches: [forwardedTouch],
+                    targetTouches: [forwardedTouch],
+                    changedTouches: [forwardedTouch],
+                    bubbles: true,
+                    cancelable: true
+                });
+                this.canvas.dispatchEvent(forwardedEvent);
+            }
         }, {passive: true});
 
         window.addEventListener('touchend', () => {
             isDragging = false;
             previousTouch = null;
+
+            if (this.canvas) {
+                const forwardedEvent = new TouchEvent('touchend', {
+                    bubbles: true,
+                    cancelable: true
+                });
+                this.canvas.dispatchEvent(forwardedEvent);
+            }
         });
 
         // Watch for Theme changes
@@ -95,74 +197,144 @@ class SplineApp {
     animate() {
         requestAnimationFrame(this.animate.bind(this));
         
-        // Lerp mouse
+        // Smooth lerping coordinates
         this.currentMouse.x += (this.targetMouse.x - this.currentMouse.x) * 0.05;
         this.currentMouse.y += (this.targetMouse.y - this.currentMouse.y) * 0.05;
 
-        // Try to apply variables to Spline (Spline variables must be mapped inside the file)
-        this.app.setVariable('LookX', this.currentMouse.x * 100);
-        this.app.setVariable('LookY', this.currentMouse.y * 100);
+        // Try standard Spline variables
+        try {
+            this.app.setVariable('LookX', this.currentMouse.x * 100);
+            this.app.setVariable('LookY', this.currentMouse.y * 100);
+            this.app.setVariable('mouseX', this.currentMouse.x * 100);
+            this.app.setVariable('mouseY', this.currentMouse.y * 100);
+        } catch (e) {}
+
+        // Fallback target targeting (LookAt constraints and direct bone rotators)
+        try {
+            const lookAtTarget = this.app.findObjectByName('lookAt') || 
+                                 this.app.findObjectByName('LookAt') || 
+                                 this.app.findObjectByName('target') || 
+                                 this.app.findObjectByName('Target');
+            if (lookAtTarget) {
+                lookAtTarget.position.x = this.currentMouse.x * 400;
+                lookAtTarget.position.y = this.currentMouse.y * 400;
+            } else {
+                const head = this.app.findObjectByName('Head') || this.app.findObjectByName('head');
+                if (head) {
+                    head.rotation.y = this.currentMouse.x * 0.4;
+                    head.rotation.x = -this.currentMouse.y * 0.4;
+                }
+            }
+        } catch (e) {}
     }
 
     setupScrollTrigger() {
-        const scrollEnd = this.isMobile ? "+=750" : "+=1500";
-        
-        // We use GSAP to animate a proxy object, then pass values to Spline
-        const proxy = { progress: 0 };
-
+        // Strict Mobile-First Non-Pinning Scroll Trigger
+        // Stripped out all hero pinnings, heights, and scroll trap constraints.
+        // Seamlessly deconstructs the robot canvas as the layout scrolls naturally.
         ScrollTrigger.create({
             trigger: "#hero",
             start: "top top",
-            end: scrollEnd,
-            scrub: 1,
-            pin: true,
+            end: "bottom top",
+            scrub: true,
             onUpdate: (self) => {
                 const p = self.progress;
                 
-                // Pre-vibration (0 to 0.1)
-                if (p > 0 && p < 0.1) {
-                    const intensity = (p / 0.1) * 100;
+                // Vibration physics
+                if (p > 0 && p < 0.2) {
+                    const intensity = (p / 0.2) * 100;
                     this.app.setVariable('Vibration', intensity);
                 } else if (p === 0) {
                     this.app.setVariable('Vibration', 0);
+                } else {
+                    this.app.setVariable('Vibration', 100);
                 }
 
-                // Deconstruct / Scale away (0.1 to 1.0)
-                const explodeP = Math.max(0, (p - 0.1) / 0.9);
-                // On mobile, explode clears screen 50% faster (reaches 100 sooner)
-                const adjustedExplode = this.isMobile ? Math.min(1, explodeP * 1.5) : explodeP;
-                this.app.setVariable('Explode', adjustedExplode * 100);
+                // Explode parameter mapped to scroll
+                this.app.setVariable('Explode', p * 100);
             }
         });
     }
 
     updateSplineTheme() {
-        const rootStyles = getComputedStyle(document.documentElement);
-        // Fallback checks just in case variables are delayed
-        let bgDeep = rootStyles.getPropertyValue('--bg-deep').trim() || '#000010';
-        let silkGlow = rootStyles.getPropertyValue('--silk-glow').trim() || '#CBB8C1';
-        let plumLight = rootStyles.getPropertyValue('--plum-light').trim() || '#877D8B';
-
-        // Direct material manipulation for 'Body', 'Parts', 'Head' if supported
-        // In the Spline runtime, we try to set a variable if it's prepared,
-        // or attempt to query objects. Since color manipulation is complex via API,
-        // we'll push them as Variables.
-        this.app.setVariable('ColorBody', bgDeep);
-        this.app.setVariable('ColorParts', plumLight);
-        this.app.setVariable('ColorHead', silkGlow);
-        
-        // Optional CSS Hue shift fallback on canvas if materials aren't mapped in Spline
-        // We map themes to hue angles based on the current data-theme
         const theme = document.documentElement.getAttribute('data-theme') || 'plum-tech';
+        
+        let bodyColor, partsColor, headColor;
         let hueRotate = '0deg';
+        let saturate = '1';
+        let contrast = '1';
+        let brightness = '1';
+
         switch (theme) {
-            case 'cyber-mint': hueRotate = '120deg'; break;
-            case 'earth-tones': hueRotate = '45deg'; break;
-            case 'sunset-vibes': hueRotate = '320deg'; break;
-            case 'mono-red': hueRotate = '300deg'; break;
+            case 'plum-tech':
+                bodyColor = '#000010';
+                partsColor = '#0C1024';
+                headColor = '#D25492'; // Neon Plum
+                hueRotate = '0deg';
+                saturate = '1';
+                contrast = '1.1';
+                brightness = '1';
+                break;
+            case 'cyber-mint':
+                bodyColor = '#0B0B0C';
+                partsColor = '#121215';
+                headColor = '#00FF87'; // Electric Mint
+                hueRotate = '110deg';
+                saturate = '1.8';
+                contrast = '1.2';
+                brightness = '1';
+                break;
+            case 'earth-tones':
+                bodyColor = '#2A1713';
+                partsColor = '#5E3023';
+                headColor = '#D4AF37'; // Gold Accent
+                hueRotate = '30deg';
+                saturate = '1.3';
+                contrast = '1.1';
+                brightness = '0.9';
+                break;
+            case 'sunset-vibes':
+                bodyColor = '#320007';
+                partsColor = '#4F000B';
+                headColor = '#FF7F51'; // Radiant Amber
+                hueRotate = '330deg';
+                saturate = '1.8';
+                contrast = '1.2';
+                brightness = '1';
+                break;
+            case 'mono-red':
+                bodyColor = '#0B090A';
+                partsColor = '#161A1D';
+                headColor = '#E5383B'; // Neon Red
+                hueRotate = '345deg';
+                saturate = '2.5';
+                contrast = '1.4';
+                brightness = '0.9';
+                break;
         }
-        // Applying subtle filter directly to canvas as a high-performance visual layer
-        this.canvas.style.filter = `hue-rotate(${hueRotate}) contrast(1.1) brightness(1.1)`;
+
+        // Try applying parameters
+        try {
+            this.app.setVariable('ColorBody', bodyColor);
+            this.app.setVariable('ColorParts', partsColor);
+            this.app.setVariable('ColorHead', headColor);
+        } catch (e) {}
+
+        // Fallback: direct material manip
+        try {
+            const bodyObj = this.app.findObjectByName('Body') || this.app.findObjectByName('body');
+            const partsObj = this.app.findObjectByName('Parts') || this.app.findObjectByName('parts');
+            const headObj = this.app.findObjectByName('Head') || this.app.findObjectByName('head');
+            
+            if (bodyObj && bodyObj.material) bodyObj.material.color = bodyColor;
+            if (partsObj && partsObj.material) partsObj.material.color = partsColor;
+            if (headObj && headObj.material) headObj.material.color = headColor;
+        } catch (e) {}
+
+        // Highly calibrated WebGL CSS color filter transform
+        if (this.canvas) {
+            this.canvas.style.filter = `hue-rotate(${hueRotate}) saturate(${saturate}) contrast(${contrast}) brightness(${brightness})`;
+        }
     }
 }
 

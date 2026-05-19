@@ -1,10 +1,11 @@
 :root {
-    /* Theme 1: Plum-Tech (Default Mobile-First) */
+    /* Theme 1: Plum-Tech (Default Velvet Black & Neon Plum) */
     --bg-deep: #000010;
     --bg-shadow: #0C1024;
+    --bg-shadow-trans: rgba(12, 16, 36, 0.8);
     --plum-mid: #544658;
-    --plum-light: #877D8B;
-    --silk-glow: #CBB8C1;
+    --plum-light: #A3B19B; /* Soft Sage accent */
+    --silk-glow: #D25492; /* Neon Plum */
     --text-primary: #CBB8C1;
     --text-secondary: #877D8B;
 
@@ -22,14 +23,15 @@
 }
 
 [data-theme="cyber-mint"] {
-    /* Theme 2: Cyber-Mint */
+    /* Theme 2: Cyber-Mint (Obsidian Night & Electric Mint) */
     --bg-deep: #0B0B0C;
     --bg-shadow: #121215;
+    --bg-shadow-trans: rgba(18, 18, 21, 0.8);
     --plum-mid: #4A4A4A;
-    --plum-light: #C0C0C0;
-    --silk-glow: #00FF87;
-    --text-primary: #00FF87;
-    --text-secondary: #C0C0C0;
+    --plum-light: #C0C0C0; /* Silver accent text */
+    --silk-glow: #00FF87; /* Electric Mint Glow */
+    --text-primary: #C0C0C0;
+    --text-secondary: #8E8E93;
 
     --card-plum-bg: rgba(192, 192, 192, 0.2);
     --card-navy-bg: rgba(21, 21, 24, 0.6);
@@ -38,12 +40,13 @@
 }
 
 [data-theme="earth-tones"] {
-    /* Theme 3: Earth/Coffee */
-    --bg-deep: #5E3023;
-    --bg-shadow: #895737;
-    --plum-mid: #C08552;
-    --plum-light: #DAB49D;
-    --silk-glow: #F3E9DC;
+    /* Theme 3: Earth/Coffee (Rich espresso & gold) */
+    --bg-deep: #2A1713;
+    --bg-shadow: #5E3023;
+    --bg-shadow-trans: rgba(94, 48, 35, 0.8);
+    --plum-mid: #895737;
+    --plum-light: #D4AF37; /* Gold metallic accent */
+    --silk-glow: #F3E9DC; /* Warm Cream */
     --text-primary: #F3E9DC;
     --text-secondary: #DAB49D;
 
@@ -54,13 +57,14 @@
 }
 
 [data-theme="sunset-vibes"] {
-    /* Theme 4: Sunset */
-    --bg-deep: #4F000B;
-    --bg-shadow: #720026;
-    --plum-mid: #CE4257;
-    --plum-light: #FF7F51;
-    --silk-glow: #FF9B54;
-    --text-primary: #FF9B54;
+    /* Theme 4: Sunset (Crimson Dark-Cherry & Amber Glow) */
+    --bg-deep: #320007;
+    --bg-shadow: #4F000B;
+    --bg-shadow-trans: rgba(79, 0, 11, 0.8);
+    --plum-mid: #720026;
+    --plum-light: #FF7F51; /* Radiant Amber */
+    --silk-glow: #FF9B54; /* Orange glow */
+    --text-primary: #FFD2B3;
     --text-secondary: #FF7F51;
 
     --card-plum-bg: rgba(255, 127, 81, 0.2);
@@ -70,14 +74,15 @@
 }
 
 [data-theme="mono-red"] {
-    /* Theme 5: Mono-Red */
+    /* Theme 5: Mono-Red (Pure Pitch Black & Aggressive Red) */
     --bg-deep: #0B090A;
     --bg-shadow: #161A1D;
+    --bg-shadow-trans: rgba(22, 26, 29, 0.8);
     --plum-mid: #660708;
-    --plum-light: #BA181B;
+    --plum-light: #E5383B; /* Aggressive Neon Red */
     --silk-glow: #E5383B;
     --text-primary: #FFFFFF;
-    --text-secondary: #A4161A;
+    --text-secondary: #BA181B;
 
     --card-plum-bg: rgba(164, 22, 26, 0.2);
     --card-navy-bg: rgba(22, 26, 29, 0.6);
@@ -121,6 +126,95 @@ body {
     height: 100vh;
     z-index: -1;
     pointer-events: none;
+    transform: scale(0.6);
+    transform-origin: center center;
+    transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.8s ease;
+    opacity: 0; /* starts hidden, fades in on load completion */
+}
+
+@media (min-width: 968px) {
+    #webgl-canvas {
+        transform: scale(1);
+    }
+}
+
+/* Premium Preloader */
+#preloader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000010; /* Velvet black matching initial theme */
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s;
+}
+
+.preloader-content {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.preloader-logo {
+    font-size: 3rem;
+    font-weight: 800;
+    color: #fff;
+    font-family: var(--font-display);
+    letter-spacing: -1.5px;
+    animation: logoGlow 2s infinite ease-in-out;
+}
+
+.preloader-logo span {
+    color: var(--plum-light);
+}
+
+.preloader-spinner {
+    width: 50px;
+    height: 50px;
+    position: relative;
+}
+
+.spinner-ring {
+    width: 100%;
+    height: 100%;
+    border: 3px solid rgba(203, 184, 193, 0.1);
+    border-top: 3px solid var(--silk-glow);
+    border-radius: 50%;
+    animation: spin 1s infinite linear;
+}
+
+.preloader-text {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-family: var(--font-body);
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+@keyframes logoGlow {
+    0%, 100% { opacity: 0.6; filter: drop-shadow(0 0 5px rgba(203, 184, 193, 0.2)); }
+    50% { opacity: 1; filter: drop-shadow(0 0 15px rgba(203, 184, 193, 0.6)); }
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Interaction and Scroll Lock */
+body.lock-interaction {
+    overflow: hidden !important;
+    height: 100vh !important;
+    width: 100vw !important;
+    position: fixed !important;
+    pointer-events: none !important;
 }
 
 /* Noise Texture Overlay */
@@ -254,11 +348,31 @@ p {
     text-decoration: none;
     font-size: 0.95rem;
     font-weight: 500;
-    transition: color 0.3s;
+    position: relative;
+    padding: 0.5rem 0;
+    display: inline-block;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .navbar nav a:hover {
-    color: var(--plum-light);
+    color: var(--silk-glow);
+    transform: scale(1.05);
+}
+
+.navbar nav a::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background-color: var(--silk-glow);
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navbar nav a:hover::after {
+    width: 100%;
+    left: 0;
 }
 
 .btn-text {
@@ -928,16 +1042,13 @@ footer {
     align-items: center;
 }
 
-/* Responsive */
-
-
+/* Responsive (Mobile & Tablet overrides) */
+@media (max-width: 968px) {
     .desktop-nav {
-    display: none;
-        display: none;
+        display: none !important;
     }
 
     .desktop-only {
-    display: none !important;
         display: none !important;
     }
 
@@ -956,8 +1067,7 @@ footer {
     }
 }
 
-
-
+@media (max-width: 768px) {
     .section-title {
         font-size: 2.5rem;
     }
