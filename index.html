@@ -146,92 +146,112 @@
           </div>
         </section>
 
-        <!-- ESTACIÓN 4: DASHBOARD INTEGRADO (Texto Izquierda Desktop, 3 Pestañas) -->
+        <!-- ESTACIÓN 4: CARRUSEL HORIZONTAL (Constelación 3D + 3 Paneles Editoriales) -->
         <section class="station-slide" id="slide-dashboard">
-          <div class="scroll-card sculpted-glass left-card dashboard-card">
-            <!-- Selector de Pestañas -->
-            <div class="dashboard-tabs">
-              <button class="tab-btn active" data-tab-target="training">Capacitación</button>
-              <button class="tab-btn" data-tab-target="projects">Proyectos</button>
-              <button class="tab-btn" data-tab-target="methodology">Método</button>
-            </div>
-            
-            <!-- Contenidos de las Pestañas -->
-            <div class="dashboard-content-wrapper">
-              <!-- Sub-pestaña 1: Capacitación -->
-              <div class="tab-pane active" id="pane-training">
-                <span class="station-badge">Estación 04 // Soporte</span>
-                <h2 class="card-title text-gradient">Capacitación &<br>Autonomía</h2>
-                <p class="card-text">
-                  Garantizamos que tu equipo domine cada herramienta. Proporcionamos manuales interactivos y soporte técnico extendido de nivel senior.
-                </p>
-                <ul class="card-bullets">
-                  <li>
-                    <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span>Transferencia de conocimiento práctica</span>
-                  </li>
-                  <li>
-                    <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span>Manuales dinámicos y documentación</span>
-                  </li>
-                  <li>
-                    <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span>Soporte extendido y auditoría de ROI</span>
-                  </li>
-                </ul>
-              </div>
+          <div class="carousel-universe">
 
-              <!-- Sub-pestaña 2: Proyectos -->
-              <div class="tab-pane" id="pane-projects">
-                <span class="station-badge">Estación 04 // Casos</span>
-                <h2 class="card-title text-gradient">Proyectos de<br>Alto Impacto</h2>
-                <p class="card-text">
-                  Desplegamos infraestructura digital alineada a objetivos financieros tangibles con retornos medibles.
-                </p>
-                <ul class="card-bullets">
-                  <li>
-                    <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span><strong>E-Commerce:</strong> Conversión incrementada un 34%</span>
-                  </li>
-                  <li>
-                    <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span><strong>ERP Automático:</strong> Ahorro de 150 horas/mes</span>
-                  </li>
-                  <li>
-                    <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span><strong>Tracción:</strong> Producción con +2.5M visualizaciones</span>
-                  </li>
-                </ul>
-              </div>
+            <!-- Breadcrumbs de posición -->
+            <div class="carousel-breadcrumb">
+              <span class="crumb active" data-ci="0">Capacitación</span>
+              <span class="crumb-sep">·</span>
+              <span class="crumb" data-ci="1">Proyectos</span>
+              <span class="crumb-sep">·</span>
+              <span class="crumb" data-ci="2">Método</span>
+            </div>
 
-              <!-- Sub-pestaña 3: Metodología -->
-              <div class="tab-pane" id="pane-methodology">
-                <span class="station-badge">Estación 04 // Ingeniería</span>
-                <h2 class="card-title text-gradient">Método Modular<br>SolemRJ</h2>
-                <p class="card-text">
-                  Nuestro proceso de ingeniería ágil asegura total transparencia y alineación con tus métricas clave.
-                </p>
-                <ul class="card-bullets">
-                  <li>
-                    <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span><strong>01. Diagnóstico:</strong> Análisis de fugas operativas</span>
-                  </li>
-                  <li>
-                    <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span><strong>02. Arquitectura:</strong> Diseño de la solución digital</span>
-                  </li>
-                  <li>
-                    <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                    <span><strong>03. Despliegue:</strong> Pruebas y calibración final</span>
-                  </li>
-                </ul>
+            <!-- Pista horizontal de 3 paneles -->
+            <div class="carousel-viewport">
+              <div class="carousel-track" id="carousel-track">
+
+                <!-- PANEL 1: CAPACITACIÓN & AUTONOMÍA -->
+                <div class="carousel-panel">
+                  <span class="station-badge">Estación 04 // Soporte</span>
+                  <h2 class="card-title text-gradient">Capacitación &<br>Autonomía</h2>
+                  <p class="card-text">
+                    Garantizamos que tu equipo domine cada herramienta con manuales interactivos y soporte de nivel senior.
+                  </p>
+                  <ul class="card-bullets">
+                    <li>
+                      <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      <span>Transferencia de conocimiento práctica</span>
+                    </li>
+                    <li>
+                      <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      <span>Manuales dinámicos y documentación viva</span>
+                    </li>
+                    <li>
+                      <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      <span>Soporte extendido y auditoría de ROI</span>
+                    </li>
+                  </ul>
+                  <p class="scroll-hint">Scroll ↓ para continuar</p>
+                </div>
+
+                <!-- PANEL 2: PROYECTOS DE ALTO IMPACTO -->
+                <div class="carousel-panel">
+                  <span class="station-badge">Estación 04 // Casos</span>
+                  <h2 class="card-title text-gradient">Proyectos de<br>Alto Impacto</h2>
+                  <p class="card-text">
+                    Infraestructura digital alineada a objetivos financieros con retornos medibles desde el primer mes.
+                  </p>
+                  <ul class="card-bullets">
+                    <li>
+                      <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      <span><strong>E-Commerce:</strong> Conversión +34%</span>
+                    </li>
+                    <li>
+                      <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      <span><strong>ERP Auto:</strong> 150 horas/mes liberadas</span>
+                    </li>
+                    <li>
+                      <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      <span><strong>Tracción:</strong> +2.5M visualizaciones</span>
+                    </li>
+                  </ul>
+                  <p class="scroll-hint">Scroll ↓ para continuar</p>
+                </div>
+
+                <!-- PANEL 3: MÉTODO MODULAR -->
+                <div class="carousel-panel">
+                  <span class="station-badge">Estación 04 // Ingeniería</span>
+                  <h2 class="card-title text-gradient">Método Modular<br>SolemRJ</h2>
+                  <p class="card-text">
+                    Proceso ágil con total transparencia y alineación a tus métricas de negocio clave.
+                  </p>
+                  <ul class="card-bullets">
+                    <li>
+                      <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      <span><strong>01 · Diagnóstico</strong> — Análisis de fugas operativas</span>
+                    </li>
+                    <li>
+                      <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      <span><strong>02 · Arquitectura</strong> — Diseño de la solución</span>
+                    </li>
+                    <li>
+                      <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                      <span><strong>03 · Despliegue</strong> — Pruebas y calibración final</span>
+                    </li>
+                  </ul>
+                  <div class="card-actions" style="margin-top:1.2rem;">
+                    <a href="#sec-contact" class="btn btn-primary btn-journey" data-target="5">Iniciar Proyecto →</a>
+                  </div>
+                </div>
+
+              </div><!-- /.carousel-track -->
+            </div><!-- /.carousel-viewport -->
+
+            <!-- Controles inferiores -->
+            <div class="carousel-controls">
+              <button class="carr-btn" id="carr-prev" aria-label="Panel anterior">‹</button>
+              <div class="carousel-indicators">
+                <button class="cind active" data-ci="0" aria-label="Capacitación"></button>
+                <button class="cind" data-ci="1" aria-label="Proyectos"></button>
+                <button class="cind" data-ci="2" aria-label="Metodología"></button>
               </div>
+              <button class="carr-btn" id="carr-next" aria-label="Panel siguiente">›</button>
             </div>
-            
-            <div class="card-actions">
-              <a href="#sec-contact" class="btn btn-primary btn-journey" data-target="5">Contacto</a>
-            </div>
-          </div>
+
+          </div><!-- /.carousel-universe -->
         </section>
 
         <!-- ESTACIÓN 5: CONTACTO Y FOOTER (Centrado) -->
