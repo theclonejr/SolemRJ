@@ -1,244 +1,461 @@
 gsap.registerPlugin(ScrollTrigger);
 
-class CanvasCoreApp {
+class Immersive3DSceneApp {
     constructor() {
-        this.canvas = document.getElementById('webgl-canvas');
-        if (!this.canvas) return;
-        this.ctx = this.canvas.getContext('2d');
-        
+        // DOM elements
+        this.building3D = document.getElementById('building-3d');
+        this.office3D = document.getElementById('office-3d');
+        this.cards = document.querySelectorAll('.scroll-card');
+
+        if (!this.building3D && !this.office3D) return;
+
         // State
         this.targetMouse = { x: 0, y: 0 };
         this.currentMouse = { x: 0, y: 0 };
         this.isMobile = window.innerWidth < 968;
         this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        this.scrollProgress = 0;
-        
-        // 3D rotation angles
-        this.rot = { x: 0, y: 0, z: 0 };
-        this.autoRotSpeed = { x: 0.003, y: 0.004 };
-        this.autoRot = { x: 0, y: 0 };
-        
-        // Nodes, connections, packets
-        this.nodes = [];
-        this.connections = [];
-        this.packets = [];
-        this.ambientParticles = [];
-        
-        // Render loop handle
-        this.animationId = null;
-        
+
         if (!this.reducedMotion) {
             this.init();
         } else {
-            // Remove preloader and unlock scrolling immediately if user requested reduced motion
+            // Remove preloader immediately if reduced motion
             const preloader = document.getElementById('preloader');
             if (preloader) preloader.remove();
             document.body.classList.remove('lock-interaction');
+            
+            // Set static visible states
+            gsap.set(this.building3D, { opacity: 0, zIndex: 1 });
+            gsap.set(this.office3D, { opacity: 1, zIndex: 2 });
+            gsap.set(this.cards, { opacity: 1, y: 0, position: "relative", pointerEvents: "auto" });
+            gsap.set(".immersive-content-overlay", { position: "relative", display: "flex", flexDirection: "column", padding: "2rem", height: "auto" });
+            gsap.set(".scroll-container", { height: "auto" });
+            gsap.set(".scene-wrapper", { position: "relative", height: "auto", overflow: "visible" });
         }
     }
-    
+
     init() {
-        this.resizeCanvas();
-        this.generateGeometry();
+        this.resize();
         this.addEventListeners();
         this.setupScrollTrigger();
-        
-        // Start render loop
+
+        // Force texture loading on #office-3d load
+        if (this.office3D) {
+            this.office3D.addEventListener('load', () => {
+                const materials = this.office3D.model?.materials;
+                if (materials && materials.length > 0) {
+                    this.office3D.createTexture('assets/3d-models/textures/oficina-laboratorio/Texture_1024.png')
+                        .then((texture) => {
+                            materials.forEach(material => {
+                                if (material.pbrMetallicRoughness && material.pbrMetallicRoughness.baseColorTexture) {
+                                    material.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
+                                }
+                            });
+                        })
+                        .catch(err => console.error("Error setting texture programmatically:", err));
+                }
+            });
+        }
+
+        // Start render loop for mouse tracking
         this.animate();
-        
-        // Premium Simulated Preloader Sequence
-        // Since there are no heavy external assets to download now, we simulate a loading sequence to
-        // build anticipation and reveal the core with an ultra-smooth premium fade-in
+
+        // Premium Preloader sequence
         const preloader = document.getElementById('preloader');
         if (preloader) {
             gsap.to(preloader, {
                 opacity: 0,
                 duration: 1.0,
-                delay: 1.2, // Simulated loading delay
+                delay: 1.2,
                 ease: "power2.inOut",
                 onComplete: () => {
                     preloader.remove();
-                    // Fade in WebGL Canvas
-                    if (this.canvas) {
-                        gsap.to(this.canvas, {
-                            opacity: 1,
-                            duration: 1.2,
-                            ease: "power2.out",
-                            onComplete: () => {
-                                // Smoothly unlock all scrolls and clicks
-                                document.body.classList.remove('lock-interaction');
-                            }
-                        });
-                    }
+                    document.body.classList.remove('lock-interaction');
                 }
             });
         } else {
             document.body.classList.remove('lock-interaction');
-            if (this.canvas) this.canvas.style.opacity = 1;
         }
     }
-    
-    resizeCanvas() {
-        const dpr = window.devicePixelRatio || 1;
-        this.width = window.innerWidth;
-        this.height = window.innerHeight;
-        
-        this.canvas.width = this.width * dpr;
-        this.canvas.height = this.height * dpr;
-        this.ctx.scale(dpr, dpr);
-        
-        this.centerX = this.width / 2;
-        this.centerY = this.height / 2;
-        
-        // Scale core dimensions based on mobile vs desktop
+
+    resize() {
         this.isMobile = window.innerWidth < 968;
-        this.baseScale = this.isMobile ? 0.6 : 1.0;
     }
-    
-    generateGeometry() {
-        this.nodes = [];
-        this.connections = [];
-        this.packets = [];
-        this.ambientParticles = [];
-        
-        // 1. Central Processor Node (Energy Core at 0,0,0)
-        // 2. Microprocessor Node Grid / Inner Sphere
-        // Let's create an inner cluster (Hyper-cube or Concentric Rings)
-        const nodeCountInner = 14;
-        const radiusInner = 80;
-        for (let i = 0; i < nodeCountInner; i++) {
-            // Fibonacci sphere distribution for perfect node spacing
-            const phi = Math.acos(-1 + (2 * i) / nodeCountInner);
-            const theta = Math.sqrt(nodeCountInner * Math.PI) * phi;
+
+    setupScrollTrigger() {
+        let mm = gsap.matchMedia();
+
+        // Desktop Setup
+        mm.add("(min-width: 968px)", () => {
+            // Initial setup for scene elements on desktop
+            gsap.set("#building-3d", { opacity: 1, zIndex: 2 });
+            gsap.set("#office-3d", { opacity: 0, zIndex: 1 });
             
-            const x = radiusInner * Math.sin(phi) * Math.cos(theta);
-            const y = radiusInner * Math.sin(phi) * Math.sin(theta);
-            const z = radiusInner * Math.cos(phi);
-            
-            this.nodes.push(this.createNode(x, y, z, 'inner'));
-        }
-        
-        // 3. Outer Automation Core Ring / Cluster
-        const nodeCountOuter = 22;
-        const radiusOuter = 160;
-        for (let i = 0; i < nodeCountOuter; i++) {
-            const phi = Math.acos(-1 + (2 * i) / nodeCountOuter);
-            const theta = Math.sqrt(nodeCountOuter * Math.PI) * phi;
-            
-            const x = radiusOuter * Math.sin(phi) * Math.cos(theta);
-            const y = radiusOuter * Math.sin(phi) * Math.sin(theta);
-            const z = radiusOuter * Math.cos(phi);
-            
-            this.nodes.push(this.createNode(x, y, z, 'outer'));
-        }
-        
-        // 4. Connect adjacent nodes in 3D space
-        const maxDist = 125;
-        for (let i = 0; i < this.nodes.length; i++) {
-            for (let j = i + 1; j < this.nodes.length; j++) {
-                const dx = this.nodes[i].x - this.nodes[j].x;
-                const dy = this.nodes[i].y - this.nodes[j].y;
-                const dz = this.nodes[i].z - this.nodes[j].z;
-                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                
-                if (dist < maxDist) {
-                    this.connections.push({
-                        a: i,
-                        b: j,
-                        length: dist,
-                        maxDist: maxDist
-                    });
+            // Hide all cards except Hero card initially on desktop
+            gsap.set(".scroll-card", { opacity: 0, x: "-50px", position: "absolute", pointerEvents: "none" });
+            gsap.set("#card-hero", { opacity: 1, x: 0, pointerEvents: "auto" });
+
+            this.buildingProxy = { theta: 45, phi: 75, radius: 10, tx: 0, ty: 2.5, tz: 0 };
+            this.officeProxy = { theta: 0, phi: 60, radius: 15, tx: 0, ty: -1.5, tz: 0 };
+
+            // Master Timeline driven by scroll progress with single pin on .scene-wrapper
+            this.timeline = gsap.timeline({
+                scrollTrigger: {
+                    trigger: ".scroll-container",
+                    pin: ".scene-wrapper",
+                    start: "top top",
+                    end: "bottom bottom",
+                    scrub: 1.2,
+                    invalidateOnRefresh: true,
+                    snap: {
+                        snapTo: [0, 0.22, 0.42, 0.62, 0.82, 1.0],
+                        duration: { min: 0.2, max: 0.6 },
+                        ease: "power1.inOut"
+                    }
                 }
+            });
+
+            // Add labels at the exact timestamps
+            this.timeline.addLabel("hero", 0);
+            this.timeline.addLabel("webdev", 5.2);
+            this.timeline.addLabel("automation", 9.9);
+            this.timeline.addLabel("marketing", 14.6);
+            this.timeline.addLabel("training", 19.3);
+
+            // --- FASE 1: DESPACHO DEL HERO CARD Y ACCIÓN DEL EDIFICIO ---
+            this.timeline
+                .to("#card-hero", { x: "-150%", opacity: 0, pointerEvents: "none", duration: 0.8, ease: "power2.in" })
+                .to(this.buildingProxy, {
+                    theta: 180,
+                    phi: 45,
+                    radius: 4,
+                    duration: 2.5,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.building3D) {
+                            this.building3D.setAttribute('camera-orbit', `${this.buildingProxy.theta}deg ${this.buildingProxy.phi}deg ${this.buildingProxy.radius}m`);
+                            this.building3D.setAttribute('camera-target', `${this.buildingProxy.tx}m ${this.buildingProxy.ty}m ${this.buildingProxy.tz}m`);
+                        }
+                    }
+                }, "<")
+                .to("#building-3d", { opacity: 0, duration: 1.2, ease: "power2.inOut" }, "<+1.0")
+                .set("#building-3d", { zIndex: 1 })
+                .set("#office-3d", { zIndex: 2 })
+                .to("#office-3d", { opacity: 1, duration: 1, ease: "power2.inOut" }, "<+0.2")
+
+            // --- FASE 2: ENTRADA AL LABORATORIO Y APARICIÓN DE ESTACIÓN 01 (Web Dev & AI) ---
+            this.timeline
+                .to(this.officeProxy, {
+                    theta: -30,
+                    phi: 65,
+                    radius: 9,
+                    tx: -1,
+                    ty: -0.5,
+                    tz: 0,
+                    duration: 2,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.office3D) {
+                            this.office3D.setAttribute('camera-orbit', `${this.officeProxy.theta}deg ${this.officeProxy.phi}deg ${this.officeProxy.radius}m`);
+                            this.office3D.setAttribute('camera-target', `${this.officeProxy.tx}m ${this.officeProxy.ty}m ${this.officeProxy.tz}m`);
+                        }
+                    }
+                })
+                .to("#card-webdev", { opacity: 1, x: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
+                .to({}, { duration: 1.5 }) // delay
+                .to("#card-webdev", { opacity: 0, x: "50%", pointerEvents: "none", duration: 1.2, ease: "power2.in" })
+
+            // --- FASE 3: TRANSICIÓN A ESTACIÓN 02 (Google & Automations) ---
+            this.timeline
+                .to(this.officeProxy, {
+                    theta: 35,
+                    phi: 55,
+                    radius: 8,
+                    tx: 1,
+                    ty: -1.0,
+                    tz: 0.5,
+                    duration: 2,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.office3D) {
+                            this.office3D.setAttribute('camera-orbit', `${this.officeProxy.theta}deg ${this.officeProxy.phi}deg ${this.officeProxy.radius}m`);
+                            this.office3D.setAttribute('camera-target', `${this.officeProxy.tx}m ${this.officeProxy.ty}m ${this.officeProxy.tz}m`);
+                        }
+                    }
+                })
+                .to("#card-automation", { opacity: 1, x: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
+                .to({}, { duration: 1.5 }) // delay
+                .to("#card-automation", { opacity: 0, x: "50%", pointerEvents: "none", duration: 1.2, ease: "power2.in" })
+
+            // --- FASE 4: TRANSICIÓN A ESTACIÓN 03 (Marketing & Content) ---
+            this.timeline
+                .to(this.officeProxy, {
+                    theta: -15,
+                    phi: 70,
+                    radius: 6,
+                    tx: 0.5,
+                    ty: -0.5,
+                    tz: 1,
+                    duration: 2,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.office3D) {
+                            this.office3D.setAttribute('camera-orbit', `${this.officeProxy.theta}deg ${this.officeProxy.phi}deg ${this.officeProxy.radius}m`);
+                            this.office3D.setAttribute('camera-target', `${this.officeProxy.tx}m ${this.officeProxy.ty}m ${this.officeProxy.tz}m`);
+                        }
+                    }
+                })
+                .to("#card-marketing", { opacity: 1, x: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
+                .to({}, { duration: 1.5 }) // delay
+                .to("#card-marketing", { opacity: 0, x: "50%", pointerEvents: "none", duration: 1.2, ease: "power2.in" })
+
+            // --- FASE 5: ENCUADRE FINAL ESTACIÓN 04 (Capacitación & Boardroom) Y CIERRE ---
+            this.timeline
+                .to(this.officeProxy, {
+                    theta: 45,
+                    phi: 60,
+                    radius: 6,
+                    tx: -0.5,
+                    ty: -0.8,
+                    tz: -0.5,
+                    duration: 2,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.office3D) {
+                            this.office3D.setAttribute('camera-orbit', `${this.officeProxy.theta}deg ${this.officeProxy.phi}deg ${this.officeProxy.radius}m`);
+                            this.office3D.setAttribute('camera-target', `${this.officeProxy.tx}m ${this.officeProxy.ty}m ${this.officeProxy.tz}m`);
+                        }
+                    }
+                })
+                .to("#card-training", { opacity: 1, x: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
+                .to({}, { duration: 1.8 }) // delay
+                .to("#card-training", { opacity: 0, y: "-50px", pointerEvents: "none", duration: 0.8, ease: "power2.in" })
+                .to(this.officeProxy, {
+                    theta: 0,
+                    phi: 80,
+                    radius: 20,
+                    tx: 0,
+                    ty: -1.5,
+                    tz: 0,
+                    duration: 2.5,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.office3D) {
+                            this.office3D.setAttribute('camera-orbit', `${this.officeProxy.theta}deg ${this.officeProxy.phi}deg ${this.officeProxy.radius}m`);
+                            this.office3D.setAttribute('camera-target', `${this.officeProxy.tx}m ${this.officeProxy.ty}m ${this.officeProxy.tz}m`);
+                        }
+                    }
+                }, "<")
+                .to("#office-3d", { opacity: 0, duration: 1.5, ease: "power2.inOut" }, "<+0.5")
+                .to(".scene-wrapper", { opacity: 0, duration: 0.8, ease: "power2.inOut" }, "<+0.5")
+                .set(".scene-wrapper", { display: "none" });
+        });
+
+        // Mobile Setup
+        mm.add("(max-width: 967.98px)", () => {
+            // Initial setup for scene elements on mobile
+            gsap.set("#building-3d", { opacity: 0.8, zIndex: 2 });
+            gsap.set("#office-3d", { opacity: 0, zIndex: 1 });
+            
+            // Hide all cards except Hero card initially on mobile
+            gsap.set(".scroll-card", { opacity: 0, pointerEvents: "none" });
+            gsap.set("#card-hero", { opacity: 1, pointerEvents: "auto", left: "50%", xPercent: -50, top: "50%", yPercent: -50, x: 0, y: 0 });
+            gsap.set([ "#card-webdev", "#card-automation", "#card-marketing", "#card-training" ], {
+                left: "7.5vw",
+                top: "50%",
+                yPercent: -50,
+                x: 0,
+                y: 30
+            });
+
+            this.buildingProxyMobile = { theta: 45, phi: 75, radius: 14, tx: 0, ty: 2.5, tz: 0 };
+            this.officeProxyMobile = { theta: 0, phi: 60, radius: 22, tx: 0, ty: -1.5, tz: 0 };
+
+            // Master Timeline driven by scroll progress with single pin on .scene-wrapper
+            this.timeline = gsap.timeline({
+                scrollTrigger: {
+                    trigger: ".scroll-container",
+                    pin: ".scene-wrapper",
+                    start: "top top",
+                    end: "bottom bottom",
+                    scrub: 1.2,
+                    invalidateOnRefresh: true,
+                    snap: {
+                        snapTo: [0, 0.22, 0.42, 0.62, 0.82, 1.0],
+                        duration: { min: 0.2, max: 0.6 },
+                        ease: "power1.inOut"
+                    }
+                }
+            });
+
+            // Add labels at the exact timestamps
+            this.timeline.addLabel("hero", 0);
+            this.timeline.addLabel("webdev", 5.2);
+            this.timeline.addLabel("automation", 9.9);
+            this.timeline.addLabel("marketing", 14.6);
+            this.timeline.addLabel("training", 19.3);
+
+            // --- FASE 1: DESPACHO DEL HERO CARD Y ACCIÓN DEL EDIFICIO ---
+            this.timeline
+                .to("#card-hero", { y: -30, opacity: 0, pointerEvents: "none", duration: 0.8, ease: "power2.in" })
+                .to(this.buildingProxyMobile, {
+                    theta: 180,
+                    phi: 45,
+                    radius: 8,
+                    duration: 2.5,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.building3D) {
+                            this.building3D.setAttribute('camera-orbit', `${this.buildingProxyMobile.theta}deg ${this.buildingProxyMobile.phi}deg ${this.buildingProxyMobile.radius}m`);
+                            this.building3D.setAttribute('camera-target', `${this.buildingProxyMobile.tx}m ${this.buildingProxyMobile.ty}m ${this.buildingProxyMobile.tz}m`);
+                        }
+                    }
+                }, "<")
+                .to("#building-3d", { opacity: 0, duration: 1.2, ease: "power2.inOut" }, "<+1.0")
+                .set("#building-3d", { zIndex: 1 })
+                .set("#office-3d", { zIndex: 2 })
+                .to("#office-3d", { opacity: 0.3, duration: 1, ease: "power2.inOut" }, "<+0.2")
+
+            // --- FASE 2: ENTRADA AL LABORATORIO Y APARICIÓN DE ESTACIÓN 01 (Web Dev & AI) ---
+            this.timeline
+                .to(this.officeProxyMobile, {
+                    theta: -30,
+                    phi: 65,
+                    radius: 15,
+                    tx: -1,
+                    ty: -0.5,
+                    tz: 0,
+                    duration: 2,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.office3D) {
+                            this.office3D.setAttribute('camera-orbit', `${this.officeProxyMobile.theta}deg ${this.officeProxyMobile.phi}deg ${this.officeProxyMobile.radius}m`);
+                            this.office3D.setAttribute('camera-target', `${this.officeProxyMobile.tx}m ${this.officeProxyMobile.ty}m ${this.officeProxyMobile.tz}m`);
+                        }
+                    }
+                })
+                .to("#card-webdev", { opacity: 1, y: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
+                .to({}, { duration: 1.5 }) // delay
+                .to("#card-webdev", { opacity: 0, y: -30, pointerEvents: "none", duration: 1.2, ease: "power2.in" })
+
+            // --- FASE 3: TRANSICIÓN A ESTACIÓN 02 (Google & Automations) ---
+            this.timeline
+                .to(this.officeProxyMobile, {
+                    theta: 35,
+                    phi: 55,
+                    radius: 14,
+                    tx: 1,
+                    ty: -1.0,
+                    tz: 0.5,
+                    duration: 2,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.office3D) {
+                            this.office3D.setAttribute('camera-orbit', `${this.officeProxyMobile.theta}deg ${this.officeProxyMobile.phi}deg ${this.officeProxyMobile.radius}m`);
+                            this.office3D.setAttribute('camera-target', `${this.officeProxyMobile.tx}m ${this.officeProxyMobile.ty}m ${this.officeProxyMobile.tz}m`);
+                        }
+                    }
+                })
+                .to("#card-automation", { opacity: 1, y: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
+                .to({}, { duration: 1.5 }) // delay
+                .to("#card-automation", { opacity: 0, y: -30, pointerEvents: "none", duration: 1.2, ease: "power2.in" })
+
+            // --- FASE 4: TRANSICIÓN A ESTACIÓN 03 (Marketing & Content) ---
+            this.timeline
+                .to(this.officeProxyMobile, {
+                    theta: -15,
+                    phi: 70,
+                    radius: 11,
+                    tx: 0.5,
+                    ty: -0.5,
+                    tz: 1,
+                    duration: 2,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.office3D) {
+                            this.office3D.setAttribute('camera-orbit', `${this.officeProxyMobile.theta}deg ${this.officeProxyMobile.phi}deg ${this.officeProxyMobile.radius}m`);
+                            this.office3D.setAttribute('camera-target', `${this.officeProxyMobile.tx}m ${this.officeProxyMobile.ty}m ${this.officeProxyMobile.tz}m`);
+                        }
+                    }
+                })
+                .to("#card-marketing", { opacity: 1, y: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
+                .to({}, { duration: 1.5 }) // delay
+                .to("#card-marketing", { opacity: 0, y: -30, pointerEvents: "none", duration: 1.2, ease: "power2.in" })
+
+            // --- FASE 5: ENCUADRE FINAL ESTACIÓN 04 (Capacitación & Boardroom) Y CIERRE ---
+            this.timeline
+                .to(this.officeProxyMobile, {
+                    theta: 45,
+                    phi: 60,
+                    radius: 11,
+                    tx: -0.5,
+                    ty: -0.8,
+                    tz: -0.5,
+                    duration: 2,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.office3D) {
+                            this.office3D.setAttribute('camera-orbit', `${this.officeProxyMobile.theta}deg ${this.officeProxyMobile.phi}deg ${this.officeProxyMobile.radius}m`);
+                            this.office3D.setAttribute('camera-target', `${this.officeProxyMobile.tx}m ${this.officeProxyMobile.ty}m ${this.officeProxyMobile.tz}m`);
+                        }
+                    }
+                })
+                .to("#card-training", { opacity: 1, y: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
+                .to({}, { duration: 1.8 }) // delay
+                .to("#card-training", { opacity: 0, y: -30, pointerEvents: "none", duration: 0.8, ease: "power2.in" })
+                .to(this.officeProxyMobile, {
+                    theta: 0,
+                    phi: 80,
+                    radius: 28,
+                    tx: 0,
+                    ty: -1.5,
+                    tz: 0,
+                    duration: 2.5,
+                    ease: "power2.inOut",
+                    onUpdate: () => {
+                        if (this.office3D) {
+                            this.office3D.setAttribute('camera-orbit', `${this.officeProxyMobile.theta}deg ${this.officeProxyMobile.phi}deg ${this.officeProxyMobile.radius}m`);
+                            this.office3D.setAttribute('camera-target', `${this.officeProxyMobile.tx}m ${this.officeProxyMobile.ty}m ${this.officeProxyMobile.tz}m`);
+                        }
+                    }
+                }, "<")
+                .to("#office-3d", { opacity: 0, duration: 1.5, ease: "power2.inOut" }, "<+0.5")
+                .to(".scene-wrapper", { opacity: 0, duration: 0.8, ease: "power2.inOut" }, "<+0.5")
+                .set(".scene-wrapper", { display: "none" });
+        });
+
+        window.addEventListener("resize", () => {
+            if (this.timeline) {
+                this.timeline.invalidate();
             }
-        }
-        
-        // 5. Generate Traveling Data Packets along connections
-        const packetCount = this.isMobile ? 12 : 24;
-        for (let i = 0; i < packetCount; i++) {
-            if (this.connections.length === 0) break;
-            const connIndex = Math.floor(Math.random() * this.connections.length);
-            this.packets.push({
-                connIndex: connIndex,
-                progress: Math.random(),
-                speed: 0.008 + Math.random() * 0.012,
-                size: 2 + Math.random() * 3,
-                direction: Math.random() > 0.5 ? 1 : -1
-            });
-        }
-        
-        // 6. Generate Ambient Floating Data Particles (Deep-space matrix background)
-        const particleCount = this.isMobile ? 40 : 100;
-        for (let i = 0; i < particleCount; i++) {
-            const range = 400;
-            this.ambientParticles.push({
-                x: (Math.random() - 0.5) * range * 2,
-                y: (Math.random() - 0.5) * range * 2,
-                z: (Math.random() - 0.5) * range * 2,
-                size: 0.5 + Math.random() * 1.5,
-                speedX: (Math.random() - 0.5) * 0.2,
-                speedY: (Math.random() - 0.5) * 0.2,
-                speedZ: (Math.random() - 0.5) * 0.2
-            });
-        }
+            ScrollTrigger.refresh();
+        });
     }
-    
-    createNode(x, y, z, type) {
-        // Calculate explosion dispersion vectors
-        const len = Math.sqrt(x*x + y*y + z*z);
-        const dirX = x / (len || 1) + (Math.random() - 0.5) * 0.2;
-        const dirY = y / (len || 1) + (Math.random() - 0.5) * 0.2;
-        const dirZ = z / (len || 1) + (Math.random() - 0.5) * 0.2;
-        
-        return {
-            x: x,
-            y: y,
-            z: z,
-            baseX: x,
-            baseY: y,
-            baseZ: z,
-            dirX: dirX,
-            dirY: dirY,
-            dirZ: dirZ,
-            type: type,
-            size: type === 'inner' ? 4 : 5,
-            pulseOffset: Math.random() * Math.PI * 2
-        };
-    }
-    
+
     addEventListeners() {
-        this.resizeHandler = () => this.resizeCanvas();
-        window.addEventListener('resize', this.resizeHandler);
-        
-        // Mouse tracking for Desktop
+        window.addEventListener('resize', this.resize.bind(this));
+
+        // Desktop mouse tracking tilt
         this.mousemoveHandler = (e) => {
-            if (this.isMobile) return;
-            // Normalize -1 to 1
-            this.targetMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            this.targetMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            this.targetMouse.x = (e.clientX / window.innerWidth) - 0.5;
+            this.targetMouse.y = (e.clientY / window.innerHeight) - 0.5;
         };
         window.addEventListener('mousemove', this.mousemoveHandler);
-        
-        // Touch swipe tracking for Mobile
+
+        // Mobile touch swipe offset tracking
         let touchStart = { x: 0, y: 0 };
         this.touchstartHandler = (e) => {
-            if (!this.isMobile || e.touches.length === 0) return;
             touchStart.x = e.touches[0].clientX;
             touchStart.y = e.touches[0].clientY;
         };
         this.touchmoveHandler = (e) => {
-            if (!this.isMobile || e.touches.length === 0) return;
             const touchX = e.touches[0].clientX;
             const touchY = e.touches[0].clientY;
             
-            const dx = touchX - touchStart.x;
-            const dy = touchY - touchStart.y;
+            const dx = (touchX - touchStart.x) / window.innerWidth;
+            const dy = (touchY - touchStart.y) / window.innerHeight;
             
-            // Adjust camera rotation targets directly on touch swipe
-            this.targetMouse.x += dx * 0.005;
-            this.targetMouse.y -= dy * 0.005;
-            
-            this.targetMouse.x = Math.max(-1.5, Math.min(1.5, this.targetMouse.x));
-            this.targetMouse.y = Math.max(-1.5, Math.min(1.5, this.targetMouse.y));
+            this.targetMouse.x = Math.max(-0.6, Math.min(0.6, this.targetMouse.x + dx * 0.15));
+            this.targetMouse.y = Math.max(-0.6, Math.min(0.6, this.targetMouse.y + dy * 0.15));
             
             touchStart.x = touchX;
             touchStart.y = touchY;
@@ -246,324 +463,25 @@ class CanvasCoreApp {
         window.addEventListener('touchstart', this.touchstartHandler, { passive: true });
         window.addEventListener('touchmove', this.touchmoveHandler, { passive: true });
     }
-    
-    setupScrollTrigger() {
-        ScrollTrigger.create({
-            trigger: "#hero",
-            start: "top top",
-            end: "bottom top",
-            scrub: true,
-            onUpdate: (self) => {
-                this.scrollProgress = self.progress;
-            }
-        });
-    }
-    
-    // 3D rotation math projected onto 2D viewport
-    project(x, y, z, rotX, rotY) {
-        // Rotate Y
-        let cosY = Math.cos(rotY);
-        let sinY = Math.sin(rotY);
-        let x1 = x * cosY + z * sinY;
-        let z1 = -x * sinY + z * cosY;
-        
-        // Rotate X
-        let cosX = Math.cos(rotX);
-        let sinX = Math.sin(rotX);
-        let y2 = y * cosX - z1 * sinX;
-        let z2 = y * sinX + z1 * cosX;
-        
-        // Scale down mobile core by 40% (baseScale = 0.6)
-        const finalScale = this.baseScale;
-        x1 *= finalScale;
-        y2 *= finalScale;
-        z2 *= finalScale;
-        
-        // Perspective Math
-        const fov = 350;
-        const cameraDist = 280;
-        const scale = fov / (fov + z2 + cameraDist);
-        
-        return {
-            x: this.centerX + x1 * scale,
-            y: this.centerY + y2 * scale,
-            depth: z2,
-            scale: scale
-        };
-    }
-    
+
     animate() {
-        // CPU Optimization: Stop render operations completely if canvas is scrolled out of viewport
-        if (this.scrollProgress >= 1.0) {
-            this.animationId = requestAnimationFrame(this.animate.bind(this));
-            return;
-        }
-        
-        this.ctx.clearRect(0, 0, this.width, this.height);
-        
-        // Update automatic floating rotations
-        this.autoRot.x += this.autoRotSpeed.x;
-        this.autoRot.y += this.autoRotSpeed.y;
-        
-        // Smoothly interpolate (lerp) cursor tracking vectors
-        this.currentMouse.x += (this.targetMouse.x - this.currentMouse.x) * 0.06;
-        this.currentMouse.y += (this.targetMouse.y - this.currentMouse.y) * 0.06;
-        
-        // Define actual rotation angles
-        const rx = this.currentMouse.y * 0.6 + this.autoRot.x;
-        const ry = this.currentMouse.x * 0.6 + this.autoRot.y;
-        
-        // Fetch current CSS theme color custom properties dynamically from layout root
-        const styles = getComputedStyle(document.documentElement);
-        const silkGlow = styles.getPropertyValue('--silk-glow').trim() || '#D25492';
-        const plumLight = styles.getPropertyValue('--plum-light').trim() || '#A3B19B';
-        const textPrimary = styles.getPropertyValue('--text-primary').trim() || '#CBB8C1';
-        
-        // Scroll physics mapping: vibration state and explosive dispersion
-        let vibration = 0;
-        let dispersion = 0;
-        
-        if (this.scrollProgress > 0 && this.scrollProgress < 0.2) {
-            // Vibration Phase (0.0 to 0.2)
-            vibration = (this.scrollProgress / 0.2) * 8.0; // max vibration intensity
-        } else if (this.scrollProgress >= 0.2) {
-            // Explosive Dispersion Phase (0.2 to 1.0)
-            const dispProg = (this.scrollProgress - 0.2) / 0.8;
-            dispersion = dispProg * 900.0; // explosive dispersion speed/distance
-            
-            // Seamlessly fade out the canvas as dispersion completes
-            if (this.canvas) {
-                this.canvas.style.opacity = Math.max(0, 1 - dispProg * 1.5);
-            }
-        } else {
-            if (this.canvas && this.canvas.style.opacity !== '1') {
-                this.canvas.style.opacity = '1';
+        // Mouse tilt interpolation for organic lag/inertia
+        this.currentMouse.x += (this.targetMouse.x - this.currentMouse.x) * 0.08;
+        this.currentMouse.y += (this.targetMouse.y - this.currentMouse.y) * 0.08;
+
+        // Apply mouse tilt exclusively to #building-3d camera-orbit
+        if (this.building3D) {
+            const proxy = this.isMobile ? this.buildingProxyMobile : this.buildingProxy;
+            if (proxy) {
+                const deltaTheta = this.currentMouse.x * 10; // subtle +/- 5deg based on cursor position
+                const deltaPhi = this.currentMouse.y * 10;   // subtle +/- 5deg
+                const finalTheta = proxy.theta + deltaTheta;
+                const finalPhi = proxy.phi + deltaPhi;
+                this.building3D.setAttribute('camera-orbit', `${finalTheta}deg ${finalPhi}deg ${proxy.radius}m`);
             }
         }
-        
-        // Draw Ambient Floating Data Particles
-        this.ctx.fillStyle = this.hexToRGBA(textPrimary, 0.2);
-        this.ambientParticles.forEach(p => {
-            // Update positions
-            p.x += p.speedX;
-            p.y += p.speedY;
-            p.z += p.speedZ;
-            
-            // Loop particles inside boundary box
-            const boundary = 400;
-            if (Math.abs(p.x) > boundary) p.speedX *= -1;
-            if (Math.abs(p.y) > boundary) p.speedY *= -1;
-            if (Math.abs(p.z) > boundary) p.speedZ *= -1;
-            
-            // Apply dispersion
-            let px = p.x;
-            let py = p.y;
-            let pz = p.z;
-            
-            if (dispersion > 0) {
-                const len = Math.sqrt(p.x*p.x + p.y*p.y + p.z*p.z) || 1;
-                px += (p.x / len) * dispersion * 1.2;
-                py += (p.y / len) * dispersion * 1.2;
-                pz += (p.z / len) * dispersion * 1.2;
-            }
-            
-            const proj = this.project(px, py, pz, rx, ry);
-            
-            this.ctx.beginPath();
-            this.ctx.arc(proj.x, proj.y, p.size * proj.scale, 0, Math.PI * 2);
-            this.ctx.fill();
-        });
-        
-        // Calculate current projected 3D nodes
-        const projectedNodes = this.nodes.map((node, index) => {
-            // Base coordinate + dispersion vector
-            let nx = node.baseX;
-            let ny = node.baseY;
-            let nz = node.baseZ;
-            
-            if (dispersion > 0) {
-                nx += node.dirX * dispersion;
-                ny += node.dirY * dispersion;
-                nz += node.dirZ * dispersion;
-            }
-            
-            // Add scroll-driven high-frequency vibration
-            if (vibration > 0) {
-                nx += (Math.random() - 0.5) * vibration;
-                ny += (Math.random() - 0.5) * vibration;
-                nz += (Math.random() - 0.5) * vibration;
-            }
-            
-            // Project
-            const proj = this.project(nx, ny, nz, rx, ry);
-            
-            // Magnetic cursor warping (desktop only, warping nodes near the cursor)
-            if (!this.isMobile) {
-                const mouseWorldX = this.centerX + this.currentMouse.x * 250;
-                const mouseWorldY = this.centerY - this.currentMouse.y * 250;
-                const dx = proj.x - mouseWorldX;
-                const dy = proj.y - mouseWorldY;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                
-                if (dist < 180) {
-                    const warpIntensity = (1 - dist / 180) * 22;
-                    proj.x += (dx / (dist || 1)) * warpIntensity;
-                    proj.y += (dy / (dist || 1)) * warpIntensity;
-                }
-            }
-            
-            return proj;
-        });
-        
-        // Draw Connections / Network Lines
-        this.ctx.lineWidth = 1.0;
-        this.connections.forEach(conn => {
-            const nodeA = projectedNodes[conn.a];
-            const nodeB = projectedNodes[conn.b];
-            
-            // Node depth testing to dynamically fade background lines
-            const averageDepth = (nodeA.depth + nodeB.depth) / 2;
-            const depthFade = Math.max(0.05, 1 - (averageDepth + 150) / 300);
-            
-            // Line opacity drops as nodes move further apart during deconstruction
-            let dispersionFade = 1.0;
-            if (dispersion > 0) {
-                dispersionFade = Math.max(0, 1 - dispersion / 450);
-            }
-            
-            if (dispersionFade <= 0) return;
-            
-            const alpha = 0.22 * depthFade * dispersionFade;
-            this.ctx.strokeStyle = this.hexToRGBA(silkGlow, alpha);
-            this.ctx.beginPath();
-            this.ctx.moveTo(nodeA.x, nodeA.y);
-            this.ctx.lineTo(nodeB.x, nodeB.y);
-            this.ctx.stroke();
-        });
-        
-        // Draw Nodes
-        projectedNodes.forEach((node, idx) => {
-            const depthFade = Math.max(0.1, 1 - (node.depth + 150) / 300);
-            
-            let dispersionFade = 1.0;
-            if (dispersion > 0) {
-                dispersionFade = Math.max(0, 1 - dispersion / 600);
-            }
-            
-            if (dispersionFade <= 0) return;
-            
-            const originalNode = this.nodes[idx];
-            // Slow organic throb animation
-            const throb = 1 + Math.sin(Date.now() * 0.003 + originalNode.pulseOffset) * 0.15;
-            const size = originalNode.size * node.scale * throb;
-            
-            this.ctx.save();
-            
-            // Radiant neon glow effect
-            this.ctx.shadowColor = silkGlow;
-            this.ctx.shadowBlur = 12 * depthFade * dispersionFade;
-            this.ctx.fillStyle = this.hexToRGBA(textPrimary, 0.9 * depthFade * dispersionFade);
-            
-            this.ctx.beginPath();
-            this.ctx.arc(node.x, node.y, size, 0, Math.PI * 2);
-            this.ctx.fill();
-            
-            // Central microprocessor node core highlights
-            if (originalNode.type === 'inner') {
-                this.ctx.fillStyle = this.hexToRGBA(silkGlow, 1.0 * depthFade * dispersionFade);
-                this.ctx.beginPath();
-                this.ctx.arc(node.x, node.y, size * 0.45, 0, Math.PI * 2);
-                this.ctx.fill();
-            }
-            
-            this.ctx.restore();
-        });
-        
-        // Draw Traveling Data Packets
-        this.packets.forEach(packet => {
-            const conn = this.connections[packet.connIndex];
-            if (!conn) return;
-            
-            const nodeA = projectedNodes[conn.a];
-            const nodeB = projectedNodes[conn.b];
-            
-            // Calculate current packet position along line vector
-            const t = packet.progress;
-            const x = nodeA.x + (nodeB.x - nodeA.x) * t;
-            const y = nodeA.y + (nodeB.y - nodeA.y) * t;
-            
-            // Fading rules for packets
-            const depth = nodeA.depth + (nodeB.depth - nodeA.depth) * t;
-            const depthFade = Math.max(0.1, 1 - (depth + 150) / 300);
-            
-            let dispersionFade = 1.0;
-            if (dispersion > 0) {
-                dispersionFade = Math.max(0, 1 - dispersion / 450);
-            }
-            
-            if (dispersionFade <= 0) return;
-            
-            // Render packet
-            this.ctx.save();
-            this.ctx.shadowColor = plumLight;
-            this.ctx.shadowBlur = 15 * depthFade * dispersionFade;
-            this.ctx.fillStyle = this.hexToRGBA(plumLight, 0.95 * depthFade * dispersionFade);
-            
-            const size = packet.size * ((nodeA.scale + nodeB.scale) / 2) * depthFade;
-            this.ctx.beginPath();
-            this.ctx.arc(x, y, size, 0, Math.PI * 2);
-            this.ctx.fill();
-            this.ctx.restore();
-            
-            // Update progress
-            packet.progress += packet.speed * packet.direction;
-            
-            // Loop data packets along network paths
-            if (packet.progress > 1.0 || packet.progress < 0.0) {
-                packet.direction *= -1;
-                packet.progress = Math.max(0, Math.min(1, packet.progress));
-                
-                // Keep the packets fresh by jumping to a random connected branch occasionally
-                if (Math.random() > 0.4) {
-                    const currentNodeIndex = packet.direction === 1 ? conn.a : conn.b;
-                    const branches = this.connections
-                        .map((c, i) => ({ c, i }))
-                        .filter(item => item.c.a === currentNodeIndex || item.c.b === currentNodeIndex);
-                        
-                    if (branches.length > 0) {
-                        const nextBranch = branches[Math.floor(Math.random() * branches.length)];
-                        packet.connIndex = nextBranch.i;
-                        packet.progress = nextBranch.c.a === currentNodeIndex ? 0.0 : 1.0;
-                        packet.direction = nextBranch.c.a === currentNodeIndex ? 1 : -1;
-                    }
-                }
-            }
-        });
-        
+
         this.animationId = requestAnimationFrame(this.animate.bind(this));
-    }
-    
-    // Clean up all events and animation frames on screen tear-down
-    destroy() {
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-        }
-        window.removeEventListener('resize', this.resizeHandler);
-        window.removeEventListener('mousemove', this.mousemoveHandler);
-        window.removeEventListener('touchstart', this.touchstartHandler);
-        window.removeEventListener('touchmove', this.touchmoveHandler);
-    }
-    
-    // Helper to translate Hex theme parameters to rgba canvas styles cleanly
-    hexToRGBA(hex, alpha) {
-        hex = hex.replace('#', '').trim();
-        if (hex.length === 3) {
-            hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-        }
-        const r = parseInt(hex.substring(0, 2), 16) || 0;
-        const g = parseInt(hex.substring(2, 4), 16) || 0;
-        const b = parseInt(hex.substring(4, 6), 16) || 0;
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 }
 
@@ -573,12 +491,12 @@ class CanvasCoreApp {
 
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Initialize High-Performance 3D Core Canvas
-    new CanvasCoreApp();
+    new Immersive3DSceneApp();
 
     // 2. Set Year
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // 3. Navbar Scroll
+    // 3. Navbar Scroll & Custom Immersive Smooth Navigation
     const navbar = document.querySelector('.navbar');
     window.addEventListener('scroll', () => {
         if (window.scrollY > 50) {
@@ -586,6 +504,47 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             navbar.classList.remove('scrolled');
         }
+    });
+
+    const scrollContainer = document.querySelector('.scroll-container');
+    const navLinks = document.querySelectorAll('.desktop-nav a, .mobile-nav-links a, .hero-actions a, .logo, .mobile-nav-links .btn');
+    
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            const targetId = link.getAttribute('href');
+            if (targetId && targetId.startsWith('#')) {
+                e.preventDefault();
+                let targetScrollY = 0;
+                
+                if (targetId.startsWith('#sec-')) {
+                    let progress = 0;
+                    if (targetId === '#sec-hero') progress = 0;
+                    else if (targetId === '#sec-webdev') progress = 0.22;
+                    else if (targetId === '#sec-automation') progress = 0.42;
+                    else if (targetId === '#sec-marketing') progress = 0.62;
+                    else if (targetId === '#sec-training') progress = 0.82;
+                    
+                    const startY = scrollContainer.offsetTop;
+                    const scrollHeight = scrollContainer.scrollHeight - window.innerHeight;
+                    targetScrollY = startY + progress * scrollHeight;
+                } else {
+                    const targetEl = document.querySelector(targetId);
+                    if (targetEl) {
+                        targetScrollY = targetEl.offsetTop;
+                    } else {
+                        return;
+                    }
+                }
+                
+                const obj = { y: window.scrollY };
+                gsap.to(obj, {
+                    y: targetScrollY,
+                    duration: 1.2,
+                    ease: "power2.inOut",
+                    onUpdate: () => window.scrollTo(0, obj.y)
+                });
+            }
+        });
     });
 
     // 4. Magnetic Buttons (Desktop Only)
@@ -615,25 +574,6 @@ document.addEventListener("DOMContentLoaded", () => {
             gsap.from(title, {
                 scrollTrigger: { trigger: title, start: "top 85%" },
                 y: 40, opacity: 0, duration: 0.8, ease: "power3.out"
-            });
-        });
-
-        gsap.from(".feature-list li", {
-            scrollTrigger: { trigger: ".feature-list", start: "top 80%" },
-            x: -30, opacity: 0, duration: 0.8, stagger: 0.2, ease: "power3.out"
-        });
-
-        gsap.from(".empowerment-visual", {
-            scrollTrigger: { trigger: ".empowerment-content", start: "top 80%" },
-            x: window.innerWidth >= 968 ? 50 : 0, 
-            y: window.innerWidth < 968 ? 50 : 0,
-            opacity: 0, duration: 1, ease: "power3.out"
-        });
-
-        gsap.utils.toArray('.bento-item').forEach(item => {
-            gsap.from(item, {
-                scrollTrigger: { trigger: item, start: "top 85%" },
-                y: 30, opacity: 0, duration: 0.8, ease: "power3.out"
             });
         });
 
