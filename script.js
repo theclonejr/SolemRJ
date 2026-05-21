@@ -1,94 +1,77 @@
 /* ======================================================================
-   SOLEMENGINE - MOTOR COLECTIVO DE VANGUARDIA DE SOLEMRJ
+   SOLEM ENGINE - CORE DE TRANSMUTACIÓN CUÁNTICA DE PARTÍCULAS
    ====================================================================== */
 
-class SolemEngine {
+class QuantumEngine {
   constructor() {
-    // 1. Inicialización de Contenedores y Variables
+    // 1. Contenedores WebGL y Escena
     this.canvas = document.getElementById('webgl-scene');
     this.scene = null;
     this.camera = null;
     this.renderer = null;
-    
-    // Objetos 3D Principales
-    this.galaxy = null;
-    this.bgPoints = null; // Segundo sistema de partículas (fondo profundo)
-    this.coreGroup = null;
-    this.innerSphere = null;
-    this.outerShell = null;
-    
-    // Parámetros de la Galaxia Cósmica (25,000 partículas en producción)
-    this.galaxyParams = {
-      count: 25000,
-      radius: 11.5,
-      arms: 3,
-      spin: 1.2,
-      coreColor: '#00f2fe',
-      outerColor: '#7f00ff',
-      outermostColor: '#ff1493'
-    };
-    
-    // Posición base de la cámara
-    this.baseCameraPos = { x: 0, y: 0, z: 8.5 };
-    
-    // Datos de interacción con el Mouse (Paralaje)
-    this.mouse = { x: 0, y: 0 };
-    this.targetMouse = { x: 0, y: 0 };
-    this.parallaxIntensity = 1.4;
-    
-    // Control de física dinámica (Explosión y Pasillo)
-    // 0 = Galaxia Espiral, 1 = Dos Columnas Laterales
-    this.explosionProgress = 0.0;
-    this.columnX = 4.8; // Coordenada X base para las columnas laterales
-    
-    // Cinemática de Introducción
-    this.introProgress = 1.0;
-    this.introActive = false;
-    
-    // Cinemática de Cierre de Contacto
-    this.contactCinematicTriggered = false;
-    
-    // Control de tiempo para animaciones
     this.clock = new THREE.Clock();
     
-    // Inicialización del Motor
+    // 2. Parámetros del Sistema de Partículas
+    this.particleCount = 28000;
+    this.geometry = null;
+    this.points = null;
+    
+    // 3. Arrays de Posiciones (Estaciones 0 a 5)
+    this.posHero = null;
+    this.posWeb = null;
+    this.posAuto = null;
+    this.posMkt = null;
+    this.posCap = null;
+    this.posContact = null;
+    this.randomDirs = null; // Para efecto dispersión
+    
+    // 4. Parámetros de Animación y Simulación
+    this.scrollObj = { progress: 0.0 };
+    this.mouse = { x: 0, y: 0 };
+    this.mouseWorld = new THREE.Vector3(9999, 9999, 0); // Fuera de pantalla de inicio
+    
+    // 5. Parámetros específicos para animar formas individuales
+    // Engranajes
+    this.gearIds = null;
+    this.gearAngles = null;
+    this.gearRadii = null;
+    this.gearHeights = null;
+    // Vórtice
+    this.vortexY = null;
+    this.vortexAngles = null;
+    this.vortexRadii = null;
+    // Constelación
+    this.constelTypes = null;
+    this.currentTab = 'training';
+    
+    // Inicialización del flujo
     this.initThree();
-    this.updateColumnCoords();
-    this.createGalaxy();
-    this.createBackgroundStars();
-    this.createCentralCore();
-    this.setupLights();
-    this.setupInteraction();
-    
-    // Inicialización de Animaciones Frontales (GSAP)
+    this.initParticleArrays();
+    this.createSystem();
+    this.initNavigation();
     this.initAnimations();
+    this.initInteraction();
     
-    // Arrancar la cinemática de introducción inmediatamente al cargar
-    setTimeout(() => {
-      this.triggerIntroCinematic();
-    }, 100);
-    
-    // Arrancar el bucle de renderizado
+    // Bucle de renderizado
     this.animate();
   }
 
   // ======================================================================
-  // 1. CONFIGURACIÓN DEL ENTORNO THREE.JS
+  // 1. CONFIGURACIÓN THREE.JS
   // ======================================================================
   initThree() {
-    // Escena
     this.scene = new THREE.Scene();
     
-    // Cámara de Perspectiva Adaptada para Profundidad Cinematográfica
+    // Cámara de Perspectiva Cinematográfica
     this.camera = new THREE.PerspectiveCamera(
-      58,
+      60,
       window.innerWidth / window.innerHeight,
       0.1,
-      1000
+      100
     );
-    this.camera.position.set(this.baseCameraPos.x, this.baseCameraPos.y, this.baseCameraPos.z);
+    this.camera.position.z = 6.8;
     
-    // Renderizador de alto rendimiento
+    // Renderizador de Alto Rendimiento
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
@@ -99,25 +82,20 @@ class SolemEngine {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
-    
-    // Asegurar opacidad al 100% de inicio a fin en el canvas
-    this.canvas.style.opacity = '1';
   }
 
-  // ======================================================================
-  // 2. TEXTURA RADIAL GENERADA MATEMÁTICAMENTE EN MEMORIA
-  // ======================================================================
-  createCircleTexture() {
+  // Textura radial generada matemáticamente para simular stardust brillante
+  createParticleTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 64;
     canvas.height = 64;
     const ctx = canvas.getContext('2d');
     
-    // Gradiente Radial de Alto Fulgor (Cian a Púrpura y Transparencia)
-    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 30);
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
     gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    gradient.addColorStop(0.12, 'rgba(0, 242, 254, 0.95)');
-    gradient.addColorStop(0.48, 'rgba(127, 0, 255, 0.45)');
+    gradient.addColorStop(0.12, 'rgba(255, 255, 255, 0.95)');
+    gradient.addColorStop(0.35, 'rgba(0, 242, 254, 0.7)'); // Cian
+    gradient.addColorStop(0.65, 'rgba(127, 0, 255, 0.25)'); // Violeta
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
     
     ctx.fillStyle = gradient;
@@ -127,90 +105,351 @@ class SolemEngine {
   }
 
   // ======================================================================
-  // 3. GENERADOR DE FÍSICA PARA DOS COLUMNAS Y GALAXIA ESPIRAL
+  // 2. PRE-CÁLCULO MATEMÁTICO DE COORDENADAS DE ESTACIONES
   // ======================================================================
-  createGalaxy() {
-    const count = this.galaxyParams.count;
+  initParticleArrays() {
+    const count = this.particleCount;
     
-    // Arreglos de estado
-    this.initialPositions = new Float32Array(count * 3);
-    this.introPositions = new Float32Array(count * 3); // Dispersión caótica inicial
-    this.normalizedTargetX = new Float32Array(count); // -1 = Izquierda, +1 = Derecha
-    this.targetY = new Float32Array(count);
-    this.targetZ = new Float32Array(count);
-    this.galaxySpeedOffsets = new Float32Array(count);
+    this.posHero = new Float32Array(count * 3);
+    this.posWeb = new Float32Array(count * 3);
+    this.posAuto = new Float32Array(count * 3);
+    this.posMkt = new Float32Array(count * 3);
+    this.posCap = new Float32Array(count * 3);
+    this.posContact = new Float32Array(count * 3);
     
-    const colors = new Float32Array(count * 3);
-    const colorCore = new THREE.Color(this.galaxyParams.coreColor);
-    const colorOuter = new THREE.Color(this.galaxyParams.outerColor);
-    const colorOutermost = new THREE.Color(this.galaxyParams.outermostColor);
-    
+    // Direcciones unitarias aleatorias para dispersión explosiva
+    this.randomDirs = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
-      // A. Coordenadas de la Galaxia Espiral (Estado Inicial)
-      const r = Math.pow(Math.random(), 2.8) * this.galaxyParams.radius;
-      const armAngle = ((i % this.galaxyParams.arms) * Math.PI * 2) / this.galaxyParams.arms;
-      const spinAngle = r * this.galaxyParams.spin;
-      
-      const dispersionPower = 3;
-      const spreadFactor = 0.28 * (r * 0.35 + 0.1);
-      
-      const randomX = Math.pow(Math.random(), dispersionPower) * (Math.random() < 0.5 ? 1 : -1) * spreadFactor;
-      const randomY = Math.pow(Math.random(), dispersionPower) * (Math.random() < 0.5 ? 1 : -1) * spreadFactor * 0.65;
-      const randomZ = Math.pow(Math.random(), dispersionPower) * (Math.random() < 0.5 ? 1 : -1) * spreadFactor;
-      
-      const x = Math.cos(armAngle + spinAngle) * r + randomX;
-      const y = randomY;
-      const z = Math.sin(armAngle + spinAngle) * r + randomZ;
-      
-      // Guardar posiciones iniciales de la galaxia
-      this.initialPositions[i * 3] = x;
-      this.initialPositions[i * 3 + 1] = y;
-      this.initialPositions[i * 3 + 2] = z;
-      
-      // B. Coordenadas de dispersión caótica inicial (Intro Progress = 0)
-      const angleIntro = Math.random() * Math.PI * 2;
-      const radiusIntro = 15.0 + Math.random() * 25.0;
-      this.introPositions[i * 3] = Math.cos(angleIntro) * radiusIntro + (Math.random() - 0.5) * 8.0;
-      this.introPositions[i * 3 + 1] = (Math.random() - 0.5) * 22.0;
-      this.introPositions[i * 3 + 2] = Math.sin(angleIntro) * radiusIntro + (Math.random() - 0.5) * 8.0;
-      
-      // C. Coordenadas de las Dos Columnas Laterales (Bandas anchas que se extienden a los bordes)
-      // Debe ir de 1.0 (borde del pasillo) a ~3.2 (borde exterior de la pantalla), garantizando pasillo limpio.
-      if (x < 0) {
-        this.normalizedTargetX[i] = -1.0 - Math.random() * 2.2;
-      } else {
-        this.normalizedTargetX[i] = 1.0 + Math.random() * 2.2;
-      }
-      
-      // Distribución vertical en la columna
-      this.targetY[i] = (Math.random() - 0.5) * 16.5;
-      
-      // Distribución en profundidad
-      this.targetZ[i] = (Math.random() - 0.5) * 4.5;
-      
-      // Velocidad individual de rotación kepleriana
-      this.galaxySpeedOffsets[i] = (Math.random() * 0.25 + 0.08) * (1 / (r * 0.5 + 0.4));
-      
-      // D. Interpolación de Colores Cósmicos
-      const mixedColor = colorCore.clone();
-      const radiusRatio = r / this.galaxyParams.radius;
-      
-      if (radiusRatio < 0.35) {
-        mixedColor.lerp(colorOuter, radiusRatio * 2.85);
-      } else {
-        mixedColor.lerp(colorOuter, 1.0);
-        mixedColor.lerp(colorOutermost, (radiusRatio - 0.35) * 1.54);
-      }
-      
-      colors[i * 3] = mixedColor.r;
-      colors[i * 3 + 1] = mixedColor.g;
-      colors[i * 3 + 2] = mixedColor.b;
+      const theta = Math.random() * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * Math.random() - 1.0);
+      this.randomDirs[i * 3] = Math.sin(phi) * Math.cos(theta);
+      this.randomDirs[i * 3 + 1] = Math.sin(phi) * Math.sin(theta);
+      this.randomDirs[i * 3 + 2] = Math.cos(phi);
     }
     
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    // --- ESTACIÓN 0: MICROPROCESADOR 3D ---
+    for (let i = 0; i < count; i++) {
+      if (i < 9000) {
+        // Núcleo del Chip Central (Grilla densa)
+        const rx = (Math.random() - 0.5) * 1.5;
+        const ry = (Math.random() - 0.5) * 1.5;
+        const x = Math.round(rx * 12) / 12; // Snapping
+        const y = Math.round(ry * 12) / 12;
+        const z = (Math.random() - 0.5) * 0.12;
+        this.posHero[i * 3] = x;
+        this.posHero[i * 3 + 1] = y;
+        this.posHero[i * 3 + 2] = z;
+      } else if (i < 17000) {
+        // Tarjeta Substrato Principal (Grilla amplia)
+        const rx = (Math.random() - 0.5) * 3.8;
+        const ry = (Math.random() - 0.5) * 3.8;
+        const x = Math.round(rx * 6) / 6;
+        const y = Math.round(ry * 6) / 6;
+        const z = -0.15 + (Math.random() - 0.5) * 0.05;
+        this.posHero[i * 3] = x;
+        this.posHero[i * 3 + 1] = y;
+        this.posHero[i * 3 + 2] = z;
+      } else if (i < 23000) {
+        // Pistas y Canales Conductores (Líneas que corren hacia el exterior)
+        const axis = Math.random() > 0.5 ? 'x' : 'y';
+        const val = (Math.random() - 0.5) * 3.8;
+        const spacing = (Math.random() > 0.5 ? 0.7 : -0.7) * (Math.random() * 2.2);
+        let x, y;
+        if (axis === 'x') {
+          x = val;
+          y = Math.round(spacing * 2) / 2;
+        } else {
+          x = Math.round(spacing * 2) / 2;
+          y = val;
+        }
+        const z = 0.08 + (Math.random() - 0.5) * 0.02;
+        this.posHero[i * 3] = x;
+        this.posHero[i * 3 + 1] = y;
+        this.posHero[i * 3 + 2] = z;
+      } else {
+        // Pines Periféricos (Alineaciones prismáticas en los bordes)
+        const border = Math.random() > 0.5 ? 1.9 : -1.9;
+        const borderPos = (Math.random() - 0.5) * 3.8;
+        const side = Math.random() > 0.5;
+        let x, y;
+        if (side) {
+          x = border;
+          y = Math.round(borderPos * 8) / 8;
+        } else {
+          x = Math.round(borderPos * 8) / 8;
+          y = border;
+        }
+        const z = -0.3 + Math.random() * 0.45;
+        this.posHero[i * 3] = x;
+        this.posHero[i * 3 + 1] = y;
+        this.posHero[i * 3 + 2] = z;
+      }
+    }
     
+    // --- ESTACIÓN 1: WEB & IA (CÚMULO CEREBRAL POR ARMÓNICOS ESFÉRICOS) ---
+    for (let i = 0; i < count; i++) {
+      const isLeft = Math.random() > 0.5;
+      const xOffset = isLeft ? -0.58 : 0.58;
+      
+      const u = Math.random();
+      const v = Math.random();
+      const theta = u * Math.PI; // Latitud
+      const phi = v * 2.0 * Math.PI; // Longitud
+      
+      const rBase = 1.35;
+      const pert = 0.18 * Math.sin(5.0 * theta) * Math.cos(5.0 * phi) + 
+                   0.05 * Math.sin(18.0 * theta) * Math.cos(18.0 * phi);
+      const r = rBase * (1.0 + pert);
+      
+      // Espesor volumétrico interior
+      const w = 0.72 + 0.28 * Math.random();
+      
+      const x = r * w * Math.sin(theta) * Math.cos(phi) + xOffset;
+      const y = r * w * Math.cos(theta);
+      const z = r * w * Math.sin(theta) * Math.sin(phi);
+      
+      this.posWeb[i * 3] = x;
+      this.posWeb[i * 3 + 1] = y;
+      this.posWeb[i * 3 + 2] = z;
+    }
+    
+    // --- ESTACIÓN 2: AUTOMATIZACIÓN (SISTEMA DE TRES ENGRANAJES) ---
+    this.gearIds = new Uint8Array(count);
+    this.gearAngles = new Float32Array(count);
+    this.gearRadii = new Float32Array(count);
+    this.gearHeights = new Float32Array(count);
+    
+    for (let i = 0; i < count; i++) {
+      let gearId = 0;
+      if (i < 10000) gearId = 0; // Engranaje Central-Izquierdo
+      else if (i < 20000) gearId = 1; // Engranaje Derecho (Grande)
+      else gearId = 2; // Engranaje Inferior
+      
+      this.gearIds[i] = gearId;
+      
+      let R, N;
+      if (gearId === 0) { R = 1.2; N = 12; }
+      else if (gearId === 1) { R = 1.6; N = 16; }
+      else { R = 1.2; N = 12; }
+      
+      const angle = Math.random() * 2.0 * Math.PI;
+      const isTooth = Math.random() > 0.35;
+      
+      let r;
+      if (isTooth) {
+        // Corona dentada (Onda cuadrada clampada)
+        const h = 0.16;
+        const rBorder = R + h * Math.min(Math.max(Math.cos(N * angle) * 1.5, -1.0), 1.0);
+        r = rBorder - Math.random() * 0.12;
+      } else {
+        // Estructura interna (Buje central y rayos)
+        const type = Math.random();
+        if (type < 0.4) {
+          r = Math.random() * 0.38; // Eje central
+        } else {
+          // Rayos ortogonales
+          const spokes = [0, Math.PI/2, Math.PI, 3.0*Math.PI/2];
+          const closest = spokes[Math.floor(Math.random() * spokes.length)];
+          r = 0.38 + Math.random() * (R - 0.38);
+          this.gearAngles[i] = closest + (Math.random() - 0.5) * 0.12; // Pequeña amplitud de rayo
+        }
+      }
+      
+      if (!this.gearAngles[i]) {
+        this.gearAngles[i] = angle;
+      }
+      this.gearRadii[i] = r;
+      
+      const z = (Math.random() - 0.5) * 0.28;
+      this.gearHeights[i] = z;
+      
+      // Coordenadas iniciales en el plano
+      let cx, cy;
+      if (gearId === 0) { cx = -1.2; cy = 0.8; }
+      else if (gearId === 1) { cx = 1.2; cy = -0.2; }
+      else { cx = -0.8; cy = -1.8; }
+      
+      this.posAuto[i * 3] = cx + r * Math.cos(this.gearAngles[i]);
+      this.posAuto[i * 3 + 1] = cy + r * Math.sin(this.gearAngles[i]);
+      this.posAuto[i * 3 + 2] = z;
+    }
+    
+    // --- ESTACIÓN 3: MARKETING (VÓRTICE/EMBUDO HIPERBÓLICO EXPONENCIAL) ---
+    this.vortexY = new Float32Array(count);
+    this.vortexAngles = new Float32Array(count);
+    this.vortexRadii = new Float32Array(count);
+    
+    for (let i = 0; i < count; i++) {
+      const y = (Math.random() - 0.5) * 5.0; // Rango vertical
+      const angle = Math.random() * 2.0 * Math.PI;
+      // Trompeta matemática: r(y) = a * e^(-b * y)
+      const baseR = 0.65 + 0.3 * Math.pow(y + 2.5, 1.8);
+      const r = baseR * (0.92 + 0.08 * Math.random()); // Pequeño espesor
+      
+      this.vortexY[i] = y;
+      this.vortexAngles[i] = angle;
+      this.vortexRadii[i] = r;
+      
+      this.posMkt[i * 3] = r * Math.cos(angle);
+      this.posMkt[i * 3 + 1] = y;
+      this.posMkt[i * 3 + 2] = r * Math.sin(angle);
+    }
+    
+    // --- ESTACIÓN 4: CAPACITACIÓN / CONSTEALCIÓN SAGRADA (DODEC + ICOS + ANILLOS) ---
+    this.constelTypes = new Uint8Array(count);
+    
+    const phi = (1 + Math.sqrt(5)) / 2;
+    const iphi = 1.0 / phi;
+    
+    // Escala del Icosaedro y Dodecaedro
+    const scaleIcos = 2.1;
+    const scaleDodec = 1.4;
+    
+    const icosVerts = [
+      [0, -1, -phi], [0, -1, phi], [0, 1, -phi], [0, 1, phi],
+      [-1, -phi, 0], [-1, phi, 0], [1, -phi, 0], [1, phi, 0],
+      [-phi, 0, -1], [-phi, 0, 1], [phi, 0, -1], [phi, 0, 1]
+    ].map(v => [v[0] * scaleIcos, v[1] * scaleIcos, v[2] * scaleIcos]);
+    
+    const dodecVerts = [
+      [-1, -1, -1], [-1, -1, 1], [-1, 1, -1], [-1, 1, 1],
+      [1, -1, -1], [1, -1, 1], [1, 1, -1], [1, 1, 1],
+      [0, -iphi, -phi], [0, -iphi, phi], [0, iphi, -phi], [0, iphi, phi],
+      [-iphi, -phi, 0], [-iphi, phi, 0], [iphi, -phi, 0], [iphi, phi, 0],
+      [-phi, 0, -iphi], [-phi, 0, iphi], [phi, 0, -iphi], [phi, 0, iphi]
+    ].map(v => [v[0] * scaleDodec, v[1] * scaleDodec, v[2] * scaleDodec]);
+    
+    // Filtrar aristas del Icosaedro (largo esperado de arista = 2 * scaleIcos)
+    const icosEdges = [];
+    for (let a = 0; a < icosVerts.length; a++) {
+      for (let b = a + 1; b < icosVerts.length; b++) {
+        const dx = icosVerts[a][0] - icosVerts[b][0];
+        const dy = icosVerts[a][1] - icosVerts[b][1];
+        const dz = icosVerts[a][2] - icosVerts[b][2];
+        const dSq = dx*dx + dy*dy + dz*dz;
+        const expected = 4.0 * scaleIcos * scaleIcos;
+        if (Math.abs(dSq - expected) < 0.2) {
+          icosEdges.push([icosVerts[a], icosVerts[b]]);
+        }
+      }
+    }
+    
+    // Filtrar aristas del Dodecaedro (largo esperado de arista = 2/phi * scaleDodec)
+    const dodecEdges = [];
+    for (let a = 0; a < dodecVerts.length; a++) {
+      for (let b = a + 1; b < dodecVerts.length; b++) {
+        const dx = dodecVerts[a][0] - dodecVerts[b][0];
+        const dy = dodecVerts[a][1] - dodecVerts[b][1];
+        const dz = dodecVerts[a][2] - dodecVerts[b][2];
+        const dSq = dx*dx + dy*dy + dz*dz;
+        const expected = (4.0 / (phi * phi)) * scaleDodec * scaleDodec;
+        if (Math.abs(dSq - expected) < 0.2) {
+          dodecEdges.push([dodecVerts[a], dodecVerts[b]]);
+        }
+      }
+    }
+    
+    for (let i = 0; i < count; i++) {
+      let x, y, z;
+      if (i < 8000) {
+        // Esfera Estructural Externa
+        this.constelTypes[i] = 0;
+        const u = Math.random();
+        const v = Math.random();
+        const theta = u * 2 * Math.PI;
+        const phiAngle = Math.acos(2.0 * v - 1.0);
+        const r = 2.8;
+        x = r * Math.sin(phiAngle) * Math.cos(theta);
+        y = r * Math.sin(phiAngle) * Math.sin(theta);
+        z = r * Math.cos(phiAngle);
+      } else if (i < 16000) {
+        // Anillos Ortogonales (XY=1, YZ=2, XZ=3)
+        const ringId = Math.floor((i - 8000) / 2666) + 1;
+        this.constelTypes[i] = Math.min(3, ringId);
+        
+        const angle = Math.random() * 2 * Math.PI;
+        const r = 2.3;
+        
+        if (this.constelTypes[i] === 1) {
+          x = r * Math.cos(angle); y = r * Math.sin(angle); z = 0;
+        } else if (this.constelTypes[i] === 2) {
+          x = 0; y = r * Math.cos(angle); z = r * Math.sin(angle);
+        } else {
+          x = r * Math.cos(angle); y = 0; z = r * Math.sin(angle);
+        }
+      } else if (i < 22000) {
+        // Aristas del Icosaedro (Tipo 4)
+        this.constelTypes[i] = 4;
+        const edge = icosEdges[Math.floor(Math.random() * icosEdges.length)];
+        const t = Math.random();
+        x = edge[0][0] + (edge[1][0] - edge[0][0]) * t + (Math.random() - 0.5) * 0.05;
+        y = edge[0][1] + (edge[1][1] - edge[0][1]) * t + (Math.random() - 0.5) * 0.05;
+        z = edge[0][2] + (edge[1][2] - edge[0][2]) * t + (Math.random() - 0.5) * 0.05;
+      } else {
+        // Aristas del Dodecaedro (Tipo 5)
+        this.constelTypes[i] = 5;
+        const edge = dodecEdges[Math.floor(Math.random() * dodecEdges.length)];
+        const t = Math.random();
+        x = edge[0][0] + (edge[1][0] - edge[0][0]) * t + (Math.random() - 0.5) * 0.05;
+        y = edge[0][1] + (edge[1][1] - edge[0][1]) * t + (Math.random() - 0.5) * 0.05;
+        z = edge[0][2] + (edge[1][2] - edge[0][2]) * t + (Math.random() - 0.5) * 0.05;
+      }
+      
+      this.posCap[i * 3] = x;
+      this.posCap[i * 3 + 1] = y;
+      this.posCap[i * 3 + 2] = z;
+    }
+    
+    // --- ESTACIÓN 5: CONTACTO (GALAXIA ESPIRAL DE 3 BRAZOS) ---
+    for (let i = 0; i < count; i++) {
+      const arm = i % 3;
+      const r = Math.pow(Math.random(), 1.25) * 4.6;
+      const spin = 1.35;
+      const angle = arm * (2.0 * Math.PI / 3) + r * spin;
+      const dispersion = (Math.random() - 0.5) * (0.28 + 0.32 / (r + 0.18));
+      
+      const x = r * Math.cos(angle + dispersion);
+      const z = r * Math.sin(angle + dispersion);
+      const y = (Math.random() - 0.5) * 0.42 * Math.exp(-0.25 * r);
+      
+      this.posContact[i * 3] = x;
+      this.posContact[i * 3 + 1] = y;
+      this.posContact[i * 3 + 2] = z;
+    }
+  }
+
+  // ======================================================================
+  // 3. CONSTRUCCIÓN DEL OBJETO 3D DE PARTÍCULAS
+  // ======================================================================
+  createSystem() {
+    this.geometry = new THREE.BufferGeometry();
+    
+    // Inicializar posiciones en el estado del Hero
+    const initialPos = new Float32Array(this.particleCount * 3);
+    initialPos.set(this.posHero);
+    this.geometry.setAttribute('position', new THREE.BufferAttribute(initialPos, 3));
+    
+    // Asignación de colores cósmicos (Fucsia, Cian, Violeta, Dorado)
+    const colors = new Float32Array(this.particleCount * 3);
+    for (let i = 0; i < this.particleCount; i++) {
+      const roll = Math.random();
+      let color;
+      if (roll < 0.25) {
+        color = new THREE.Color(0xFF1493); // Fucsia Cósmico
+      } else if (roll < 0.50) {
+        color = new THREE.Color(0x00F2FE); // Cian Cuántico
+      } else if (roll < 0.75) {
+        color = new THREE.Color(0x7F00FF); // Violeta Cibernético
+      } else {
+        color = new THREE.Color(0xFFD700); // Polvo Estelar Dorado
+      }
+      colors[i * 3] = color.r;
+      colors[i * 3 + 1] = color.g;
+      colors[i * 3 + 2] = color.b;
+    }
+    this.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    
+    // Material de Partículas
     const material = new THREE.PointsMaterial({
       size: 0.118,
       sizeAttenuation: true,
@@ -218,327 +457,385 @@ class SolemEngine {
       transparent: true,
       blending: THREE.AdditiveBlending,
       vertexColors: true,
-      map: this.createCircleTexture()
+      map: this.createParticleTexture()
     });
     
-    this.galaxy = new THREE.Points(geometry, material);
-    this.scene.add(this.galaxy);
-    
-    // Forzar actualización inicial
-    this.updateParticlesPhysics(0);
+    this.points = new THREE.Points(this.geometry, material);
+    this.scene.add(this.points);
   }
 
   // ======================================================================
-  // 3B. CREADOR DEL SEGUNDO SISTEMA DE PARTÍCULAS (DEPTH BACKGROUND)
+  // 4. ANIMACIÓN DE TRANSMUTACIÓN Y RENDERLOOP
   // ======================================================================
-  createBackgroundStars() {
-    const count = 3500;
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
+  animate() {
+    requestAnimationFrame(() => this.animate());
     
-    // Paleta de colores cósmicos sutiles pero visibles
-    const colorPalette = [
-      new THREE.Color(0x005b6b), // Cian nebular oscuro
-      new THREE.Color(0x3d0066), // Violeta nebular oscuro
-      new THREE.Color(0x5c1445), // Magenta nebular oscuro
-      new THREE.Color(0x1a3366), // Azul profundo sutil
-      new THREE.Color(0x66666e)  // Polvo estelar gris/blanco sutil
-    ];
+    const elapsed = this.clock.getElapsedTime();
+    const progress = this.scrollObj.progress;
+    
+    // Detalle de interpolación lineal entre estaciones
+    const interval = 0.2;
+    let idx = Math.floor(progress / interval);
+    let t = (progress % interval) / interval;
+    
+    if (progress >= 1.0) {
+      idx = 4;
+      t = 1.0;
+    }
+    
+    // Factor de Explosión Intermedio: E(t) = sin(t * PI)
+    const ep = Math.sin(t * Math.PI);
+    
+    const activePosAttr = this.geometry.attributes.position;
+    const activeArr = activePosAttr.array;
+    const count = this.particleCount;
     
     for (let i = 0; i < count; i++) {
-      // Distribución en caja tridimensional profunda
-      // X de -18 a 18
-      positions[i * 3] = (Math.random() - 0.5) * 36;
-      // Y de -38 a 18 (para dar cobertura vertical completa al bajar)
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 56 - 10;
-      // Z de -45 a -12 (lejano)
-      positions[i * 3 + 2] = -12 - Math.random() * 33;
+      const i3 = i * 3;
       
-      // Asignar color sutil de la paleta
-      const baseColor = colorPalette[Math.floor(Math.random() * colorPalette.length)];
-      // Añadir pequeña variación aleatoria de brillo
-      const brightness = 0.75 + Math.random() * 0.5;
-      
-      colors[i * 3] = Math.min(1.0, baseColor.r * brightness);
-      colors[i * 3 + 1] = Math.min(1.0, baseColor.g * brightness);
-      colors[i * 3 + 2] = Math.min(1.0, baseColor.b * brightness);
-    }
-    
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    
-    const material = new THREE.PointsMaterial({
-      size: 0.22,
-      sizeAttenuation: true,
-      depthWrite: false,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      vertexColors: true,
-      map: this.createCircleTexture(),
-      opacity: 0.85
-    });
-    
-    this.bgPoints = new THREE.Points(geometry, material);
-    this.scene.add(this.bgPoints);
-  }
-
-  // ======================================================================
-  // 4. CREACIÓN DEL NÚCLEO CENTRAL DE DOBLE MALLA (PLASMA ENERGY CORE)
-  // ======================================================================
-  createCentralCore() {
-    this.coreGroup = new THREE.Group();
-    
-    // A. Núcleo Interno (Esfera Translúcida Pulsante)
-    const innerGeom = new THREE.SphereGeometry(0.85, 64, 64);
-    const innerMat = new THREE.MeshStandardMaterial({
-      color: 0x00f2fe,
-      emissive: 0x7f00ff,
-      emissiveIntensity: 0.95,
-      roughness: 0.12,
-      metalness: 0.15,
-      transparent: true,
-      opacity: 0.88
-    });
-    this.innerSphere = new THREE.Mesh(innerGeom, innerMat);
-    this.coreGroup.add(this.innerSphere);
-    
-    // B. Escudo Exterior (Icosaedro High-Tech Wireframe)
-    const outerGeom = new THREE.IcosahedronGeometry(1.25, 2);
-    const outerMat = new THREE.MeshBasicMaterial({
-      color: 0x00f2fe,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.35,
-      blending: THREE.AdditiveBlending
-    });
-    this.outerShell = new THREE.Mesh(outerGeom, outerMat);
-    this.coreGroup.add(this.outerShell);
-    
-    this.coreGroup.position.set(0, 0, 0);
-    this.scene.add(this.coreGroup);
-  }
-
-  // ======================================================================
-  // 5. ILUMINACIÓN VOLUMÉTRICA
-  // ======================================================================
-  setupLights() {
-    const coreLight = new THREE.PointLight(0x00f2fe, 3.8, 14);
-    coreLight.position.set(0, 0, 0);
-    this.coreGroup.add(coreLight);
-    
-    const ambientLight = new THREE.AmbientLight(0x070913, 0.45);
-    this.scene.add(ambientLight);
-    
-    const dirLight1 = new THREE.DirectionalLight(0x7f00ff, 1.8);
-    dirLight1.position.set(5, 5, 2);
-    this.scene.add(dirLight1);
-    
-    const dirLight2 = new THREE.DirectionalLight(0x00f2fe, 1.2);
-    dirLight2.position.set(-5, -5, 2);
-    this.scene.add(dirLight2);
-  }
-
-  // ======================================================================
-  // 6. ADAPTABILIDAD DE COLUMNAS LATERALES (VIEWPORT ADAPTIVO)
-  // ======================================================================
-  updateColumnCoords() {
-    const visibleWidth = 2 * this.baseCameraPos.z * Math.tan((this.camera.fov * Math.PI) / 360);
-    
-    // Colocar las columnas en los extremos del viewport
-    this.columnX = visibleWidth * 0.44;
-    
-    if (window.innerWidth < 768) {
-      // En móviles colocamos las columnas levemente más al borde
-      this.columnX = visibleWidth * 0.40;
-    }
-  }
-
-  setupInteraction() {
-    this.mouseWorld = new THREE.Vector3(9999, 9999, 0); // inicializar fuera de pantalla
-    
-    window.addEventListener('mousemove', (e) => {
-      this.targetMouse.x = (e.clientX / window.innerWidth) - 0.5;
-      this.targetMouse.y = (e.clientY / window.innerHeight) - 0.5;
-      
-      // Proyectar el mouse de 2D NDC a coordenadas 3D en el plano Z = 0
-      const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
-      const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
-      
-      if (this.camera) {
-        const vector = new THREE.Vector3(ndcX, ndcY, 0.5);
-        vector.unproject(this.camera);
-        const dir = vector.sub(this.camera.position).normalize();
-        const distance = -this.camera.position.z / dir.z;
-        this.mouseWorld.copy(this.camera.position).add(dir.multiplyScalar(distance));
-      }
-    });
-    
-    window.addEventListener('mouseleave', () => {
-      // Mover lejos para detener el efecto magnético cuando el mouse sale
-      this.mouseWorld.set(9999, 9999, 0);
-    });
-    
-    window.addEventListener('resize', () => {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
-      this.camera.updateProjectionMatrix();
-      
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      
-      // Actualizar ancho de columnas
-      this.updateColumnCoords();
-      
-      // Notificar a ScrollTrigger y timeline
-      ScrollTrigger.refresh();
-      if (this.journeyTimeline) {
-        this.journeyTimeline.invalidate();
-      }
-    });
-  }
-
-  // ======================================================================
-  // 6B. CINEMÁTICA DE INTRODUCCIÓN CON BLOQUEO (0.0 A 1.5s)
-  // ======================================================================
-  triggerIntroCinematic() {
-    if (this.introActive) return;
-    this.introActive = true;
-    
-    // Bloquear scroll inmediatamente
-    document.body.classList.add('scroll-locked');
-    
-    // Prevenir eventos de scroll
-    const preventScroll = (e) => e.preventDefault();
-    window.addEventListener('wheel', preventScroll, { passive: false });
-    window.addEventListener('touchmove', preventScroll, { passive: false });
-    
-    // Ir al tope absoluto sin rebotes
-    window.scrollTo(0, 0);
-    
-    // Forzar estados de inicio de la intro
-    this.introProgress = 0.0;
-    this.explosionProgress = 0.0;
-    this.contactCinematicTriggered = false;
-    
-    if (this.coreGroup) {
-      this.coreGroup.position.set(0, 0, 0);
-      this.coreGroup.scale.set(0, 0, 0);
-    }
-    
-    // Resetear tarjetas y footer por seguridad en recargas
-    gsap.killTweensOf(".sculpted-glass-heavy");
-    gsap.killTweensOf(".footer");
-    gsap.set(".sculpted-glass-heavy", { opacity: 0, scale: 0.85 });
-    gsap.set(".footer", { opacity: 0, y: 30 });
-    
-    // Iniciar animación con GSAP
-    gsap.killTweensOf(this);
-    if (this.coreGroup) gsap.killTweensOf(this.coreGroup.scale);
-    
-    gsap.to(this, {
-      introProgress: 1.0,
-      duration: 1.5,
-      ease: "power3.out",
-      onComplete: () => {
-        // Desbloquear pantalla al terminar la cinemática
-        document.body.classList.remove('scroll-locked');
-        window.removeEventListener('wheel', preventScroll);
-        window.removeEventListener('touchmove', preventScroll);
-        this.introActive = false;
+      // A. Calcular coordenadas dinámicas para Estación A (Origen)
+      let xA, yA, zA;
+      if (idx === 0) {
+        // Hero: con reacción magnética sutil del mouse
+        xA = this.posHero[i3];
+        yA = this.posHero[i3+1];
+        zA = this.posHero[i3+2];
         
-        ScrollTrigger.refresh();
+        if (this.mouseWorld) {
+          const dx = xA - this.mouseWorld.x;
+          const dy = yA - this.mouseWorld.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          const rHover = 2.0;
+          
+          if (dist < rHover && dist > 0.001) {
+            // Empuje inercial magnético que decae al hacer scroll
+            const force = (1.0 - dist / rHover) * 0.35 * (1.0 - progress / 0.2);
+            xA += (dx / dist) * force;
+            yA += (dy / dist) * force;
+          }
+        }
+      } else if (idx === 1) {
+        xA = this.posWeb[i3];
+        yA = this.posWeb[i3+1];
+        zA = this.posWeb[i3+2];
+      } else if (idx === 2) {
+        // Engranajes rotatorios en sentidos contrarios
+        const gearId = this.gearIds[i];
+        const r = this.gearRadii[i];
+        const z = this.gearHeights[i];
+        const baseAngle = this.gearAngles[i];
+        
+        let cx, cy, rotSpeed;
+        if (gearId === 0) {
+          cx = -1.2; cy = 0.8; rotSpeed = elapsed * 1.4;
+        } else if (gearId === 1) {
+          cx = 1.2; cy = -0.2; rotSpeed = -elapsed * 1.4 * 0.75; // R0/R1 ratio
+        } else {
+          cx = -0.8; cy = -1.8; rotSpeed = elapsed * 1.4;
+        }
+        const ang = baseAngle + rotSpeed;
+        xA = cx + r * Math.cos(ang);
+        yA = cy + r * Math.sin(ang);
+        zA = z;
+      } else if (idx === 3) {
+        // Vórtice helicoidal
+        const r = this.vortexRadii[i];
+        const baseAngle = this.vortexAngles[i];
+        const y = this.vortexY[i];
+        const spiralSpeed = elapsed * 2.0 + y * 1.25;
+        xA = r * Math.cos(baseAngle + spiralSpeed);
+        yA = y;
+        zA = r * Math.sin(baseAngle + spiralSpeed);
+      } else if (idx === 4) {
+        // Constelación de Geometría Sagrada (Rotación ortogonal de anillos)
+        const gType = this.constelTypes[i];
+        const bx = this.posCap[i3];
+        const by = this.posCap[i3+1];
+        const bz = this.posCap[i3+2];
+        
+        if (gType === 0) {
+          // Esfera: rotación lenta
+          const ang = elapsed * 0.12;
+          xA = bx * Math.cos(ang) - bz * Math.sin(ang);
+          yA = by;
+          zA = bx * Math.sin(ang) + bz * Math.cos(ang);
+        } else if (gType === 1) {
+          // XY Ring
+          const ang = elapsed * 1.2;
+          xA = bx * Math.cos(ang) - by * Math.sin(ang);
+          yA = bx * Math.sin(ang) + by * Math.cos(ang);
+          zA = bz;
+        } else if (gType === 2) {
+          // YZ Ring
+          const ang = elapsed * 1.2;
+          xA = bx;
+          yA = by * Math.cos(ang) - bz * Math.sin(ang);
+          zA = by * Math.sin(ang) + bz * Math.cos(ang);
+        } else if (gType === 3) {
+          // XZ Ring
+          const ang = elapsed * 1.2;
+          xA = bx * Math.cos(ang) - bz * Math.sin(ang);
+          yA = by;
+          zA = bx * Math.sin(ang) + bz * Math.cos(ang);
+        } else {
+          // Poliedros
+          const angY = elapsed * 0.18;
+          const angX = elapsed * 0.10;
+          let rx = bx * Math.cos(angY) - bz * Math.sin(angY);
+          let rz = bx * Math.sin(angY) + bz * Math.cos(angY);
+          let ry = by;
+          
+          let rrx = rx;
+          let rry = ry * Math.cos(angX) - rz * Math.sin(angX);
+          let rrz = ry * Math.sin(angX) + rz * Math.cos(angX);
+          xA = rrx; yA = rry; zA = rrz;
+        }
       }
-    });
-    
-    if (this.coreGroup) {
-      gsap.to(this.coreGroup.scale, {
-        x: 1.0,
-        y: 1.0,
-        z: 1.0,
-        duration: 1.5,
-        ease: "back.out(1.6)"
-      });
+      
+      // B. Calcular coordenadas dinámicas para Estación B (Destino)
+      let xB, yB, zB;
+      const nextIdx = idx + 1;
+      
+      if (nextIdx === 1) {
+        xB = this.posWeb[i3];
+        yB = this.posWeb[i3+1];
+        zB = this.posWeb[i3+2];
+      } else if (nextIdx === 2) {
+        const gearId = this.gearIds[i];
+        const r = this.gearRadii[i];
+        const z = this.gearHeights[i];
+        const baseAngle = this.gearAngles[i];
+        
+        let cx, cy, rotSpeed;
+        if (gearId === 0) {
+          cx = -1.2; cy = 0.8; rotSpeed = elapsed * 1.4;
+        } else if (gearId === 1) {
+          cx = 1.2; cy = -0.2; rotSpeed = -elapsed * 1.4 * 0.75;
+        } else {
+          cx = -0.8; cy = -1.8; rotSpeed = elapsed * 1.4;
+        }
+        const ang = baseAngle + rotSpeed;
+        xB = cx + r * Math.cos(ang);
+        yB = cy + r * Math.sin(ang);
+        zB = z;
+      } else if (nextIdx === 3) {
+        const r = this.vortexRadii[i];
+        const baseAngle = this.vortexAngles[i];
+        const y = this.vortexY[i];
+        const spiralSpeed = elapsed * 2.0 + y * 1.25;
+        xB = r * Math.cos(baseAngle + spiralSpeed);
+        yB = y;
+        zB = r * Math.sin(baseAngle + spiralSpeed);
+      } else if (nextIdx === 4) {
+        const gType = this.constelTypes[i];
+        const bx = this.posCap[i3];
+        const by = this.posCap[i3+1];
+        const bz = this.posCap[i3+2];
+        
+        if (gType === 0) {
+          const ang = elapsed * 0.12;
+          xB = bx * Math.cos(ang) - bz * Math.sin(ang);
+          yB = by;
+          zB = bx * Math.sin(ang) + bz * Math.cos(ang);
+        } else if (gType === 1) {
+          const ang = elapsed * 1.2;
+          xB = bx * Math.cos(ang) - by * Math.sin(ang);
+          yB = bx * Math.sin(ang) + by * Math.cos(ang);
+          zB = bz;
+        } else if (gType === 2) {
+          const ang = elapsed * 1.2;
+          xB = bx;
+          yB = by * Math.cos(ang) - bz * Math.sin(ang);
+          zB = by * Math.sin(ang) + bz * Math.cos(ang);
+        } else if (gType === 3) {
+          const ang = elapsed * 1.2;
+          xB = bx * Math.cos(ang) - bz * Math.sin(ang);
+          yB = by;
+          zB = bx * Math.sin(ang) + bz * Math.cos(ang);
+        } else {
+          const angY = elapsed * 0.18;
+          const angX = elapsed * 0.10;
+          let rx = bx * Math.cos(angY) - bz * Math.sin(angY);
+          let rz = bx * Math.sin(angY) + bz * Math.cos(angY);
+          let ry = by;
+          
+          let rrx = rx;
+          let rry = ry * Math.cos(angX) - rz * Math.sin(angX);
+          let rrz = ry * Math.sin(angX) + rz * Math.cos(angX);
+          xB = rrx; yB = rry; zB = rrz;
+        }
+      } else if (nextIdx === 5) {
+        // Galaxia espiral en rotación kepleriana
+        const rx = this.posContact[i3];
+        const rz = this.posContact[i3+2];
+        const r = Math.sqrt(rx*rx + rz*rz);
+        const rot = elapsed * 0.75 * (1.2 / (r + 0.25));
+        xB = rx * Math.cos(rot) - rz * Math.sin(rot);
+        yB = this.posContact[i3+1];
+        zB = rx * Math.sin(rot) + rz * Math.cos(rot);
+      }
+      
+      // C. Interpolación espacial
+      let interX = xA + (xB - xA) * t;
+      let interY = yA + (yB - yA) * t;
+      let interZ = zA + (zB - zA) * t;
+      
+      // D. Estallido Caótico (Explosión Intermedia)
+      if (ep > 0.001) {
+        const rx = this.randomDirs[i3];
+        const ry = this.randomDirs[i3+1];
+        const rz = this.randomDirs[i3+2];
+        
+        // Empuje radial hacia afuera
+        const len = Math.sqrt(interX*interX + interY*interY + interZ*interZ) || 1.0;
+        const radX = interX / len;
+        const radY = interY / len;
+        const radZ = interZ / len;
+        
+        const pushForce = 3.5 * ep;
+        const turbulence = 1.8 * ep;
+        
+        interX += radX * pushForce + rx * turbulence;
+        interY += radY * pushForce + ry * turbulence;
+        interZ += radZ * pushForce + rz * turbulence;
+      }
+      
+      activeArr[i3] = interX;
+      activeArr[i3+1] = interY;
+      activeArr[i3+2] = interZ;
     }
+    
+    activePosAttr.needsUpdate = true;
+    
+    // E. Desplazamiento dinámico del centro del objeto
+    this.updateSystemLayoutPosition(idx, t);
+    
+    // Renderizado final
+    this.renderer.render(this.scene, this.camera);
   }
 
   // ======================================================================
-  // 7. TIMELINE DE PASILLO Y COLAPSO GALÁCTICO (GSAP + SCROLLTRIGGER)
+  // 5. RESPONSIVE Y DESPLAZAMIENTO CENTRO 3D (QA SENIOR)
+  // ======================================================================
+  updateSystemLayoutPosition(idx, t) {
+    const isDesktop = window.innerWidth >= 1024;
+    let targetX = 0;
+    let targetY = 0;
+    let targetScale = 1.0;
+    
+    if (isDesktop) {
+      // Disposición asimétrica Desktop
+      const offsetsX = [2.2, -2.2, 2.2, -2.2, 2.2, 0.0];
+      const valA = offsetsX[idx];
+      const valB = offsetsX[Math.min(5, idx + 1)];
+      targetX = valA + (valB - valA) * t;
+      targetY = 0.0;
+      targetScale = 1.0;
+    } else {
+      // Disposición apilada elástica Mobile-First (Objeto arriba y más pequeño)
+      const offsetsY = [1.35, 1.35, 1.35, 1.35, 1.35, 0.0];
+      const scales = [0.55, 0.55, 0.55, 0.55, 0.55, 0.65];
+      
+      const valA = offsetsY[idx];
+      const valB = offsetsY[Math.min(5, idx + 1)];
+      targetY = valA + (valB - valA) * t;
+      targetX = 0.0;
+      
+      const scaleA = scales[idx];
+      const scaleB = scales[Math.min(5, idx + 1)];
+      targetScale = scaleA + (scaleB - scaleA) * t;
+    }
+    
+    // Lerp amortiguado para una inercia de transición súper premium
+    this.points.position.x = THREE.MathUtils.lerp(this.points.position.x, targetX, 0.08);
+    this.points.position.y = THREE.MathUtils.lerp(this.points.position.y, targetY, 0.08);
+    
+    const curScale = this.points.scale.x;
+    this.points.scale.setScalar(THREE.MathUtils.lerp(curScale, targetScale, 0.08));
+  }
+
+  // ======================================================================
+  // 6. TIMELINE DE NAV Y SCROLLTRIGGER (GSAP SLIDE SNAP)
   // ======================================================================
   initAnimations() {
     gsap.registerPlugin(ScrollTrigger);
     
-    // C. Selección de Slides
-    const slides = [
-      document.getElementById('slide-hero'),
-      document.getElementById('slide-webdev'),
-      document.getElementById('slide-automation'),
-      document.getElementById('slide-marketing'),
-      document.getElementById('slide-training'),
-      document.getElementById('slide-projects'),
-      document.getElementById('slide-methodology')
-    ];
+    // Configuración de Scroll Blindado (Inercia unificada para QA)
+    ScrollTrigger.normalizeScroll({
+      allowNestedScroll: true
+    });
     
-    // Configuración inicial de tarjetas frontales
-    gsap.set(slides[0], { autoAlpha: 1, y: 0 });
-    gsap.set(slides.slice(1), { autoAlpha: 0, y: 55 });
-    
-    // TIMELINE MAESTRO PINNED (Estaciones 0 a 6)
-    this.journeyTimeline = gsap.timeline({
+    // Pin general de la escena
+    this.masterTimeline = gsap.timeline({
       scrollTrigger: {
         trigger: ".journey-wrapper",
         start: "top top",
         end: "bottom bottom",
-        scrub: 1.15,
+        scrub: 1.5,
         pin: ".scroll-container",
-        pinSpacing: true, // pin spacing true para separar limpio del contacto
+        pinSpacing: true,
         snap: {
-          snapTo: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1.0], // 7 estaciones (0 a 6)
-          duration: { min: 0.45, max: 0.85 },
-          delay: 0.08,
-          ease: "power2.out"
+          snapTo: [0, 0.2, 0.4, 0.6, 0.8, 1.0],
+          duration: { min: 0.3, max: 0.7 },
+          ease: "power2.inOut",
+          delay: 0.05
         }
       }
     });
     
-    // Tramo 1: Hero (Estación 0) -> Web Dev & IA (Estación 1 - COLUMNA IZQUIERDA)
-    this.journeyTimeline
-      .to(slides[0], { autoAlpha: 0, y: -55, duration: 0.4 }, "t1")
-      .to(this, { explosionProgress: 1.0, duration: 0.5, ease: "power2.out" }, "t1")
-      .to(this.coreGroup.position, { y: -1.2, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t1")
-      .to(slides[1], { autoAlpha: 1, y: 0, duration: 0.4 }, "t1+=0.4")
-      
-      // Tramo 2: Web Dev (Estación 1 - IZQUIERDA) -> Automatización (Estación 2 - COLUMNA DERECHA)
-      .to(slides[1], { autoAlpha: 0, y: -55, duration: 0.4 }, "t2")
-      .to(this.coreGroup.position, { y: -2.4, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t2")
-      .to(slides[2], { autoAlpha: 1, y: 0, duration: 0.4 }, "t2+=0.4")
-      
-      // Tramo 3: Automatización (Estación 2 - DERECHA) -> Marketing (Estación 3 - COLUMNA IZQUIERDA)
-      .to(slides[2], { autoAlpha: 0, y: -55, duration: 0.4 }, "t3")
-      .to(this.coreGroup.position, { y: -3.6, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t3")
-      .to(slides[3], { autoAlpha: 1, y: 0, duration: 0.4 }, "t3+=0.4")
-      
-      // Tramo 4: Marketing (Estación 3 - IZQUIERDA) -> Capacitación (Estación 4 - COLUMNA DERECHA)
-      .to(slides[3], { autoAlpha: 0, y: -55, duration: 0.4 }, "t4")
-      .to(this.coreGroup.position, { y: -4.8, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t4")
-      .to(slides[4], { autoAlpha: 1, y: 0, duration: 0.4 }, "t4+=0.4")
-      
-      // Tramo 5: Capacitación (Estación 4 - DERECHA) -> Proyectos (Estación 5 - COLUMNA IZQUIERDA)
-      .to(slides[4], { autoAlpha: 0, y: -55, duration: 0.4 }, "t5")
-      .to(this.coreGroup.position, { y: -6.0, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t5")
-      .to(slides[5], { autoAlpha: 1, y: 0, duration: 0.4 }, "t5+=0.4")
-      
-      // Tramo 6: Proyectos (Estación 5 - IZQUIERDA) -> Metodología (Estación 6 - COLUMNA DERECHA)
-      .to(slides[5], { autoAlpha: 0, y: -55, duration: 0.4 }, "t6")
-      .to(this.coreGroup.position, { y: -7.2, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t6")
-      .to(slides[6], { autoAlpha: 1, y: 0, duration: 0.4 }, "t6+=0.4");
-      
-    this.setupNavigation();
+    // Tween de control lineal para mapear la transmutación
+    this.masterTimeline.to(this.scrollObj, {
+      progress: 1.0,
+      ease: "none",
+      onUpdate: () => {
+        this.updateActiveSlide(this.scrollObj.progress);
+      }
+    });
+  }
+
+  updateActiveSlide(p) {
+    const slides = document.querySelectorAll('.station-slide');
+    const navLinks = document.querySelectorAll('.nav-link, .nav-cta');
+    
+    let activeIdx = 0;
+    if (p < 0.1) activeIdx = 0;
+    else if (p < 0.3) activeIdx = 1;
+    else if (p < 0.5) activeIdx = 2;
+    else if (p < 0.7) activeIdx = 3;
+    else if (p < 0.9) activeIdx = 4;
+    else activeIdx = 5;
+    
+    slides.forEach((slide, idx) => {
+      if (idx === activeIdx) {
+        slide.classList.add('active-slide');
+      } else {
+        slide.classList.remove('active-slide');
+      }
+    });
+    
+    navLinks.forEach(link => {
+      const idx = parseInt(link.getAttribute('data-index'));
+      if (idx === activeIdx) {
+        const tab = link.getAttribute('data-tab');
+        if (activeIdx === 4 && tab) {
+          if (tab === this.currentTab) {
+            link.classList.add('active');
+          } else {
+            link.classList.remove('active');
+          }
+        } else {
+          link.classList.add('active');
+        }
+      } else {
+        link.classList.remove('active');
+      }
+    });
   }
 
   // ======================================================================
-  // 8. CONTROLADORES DE DIRECCIONAMIENTO E INTERCEPTACIÓN DE SCROLL
+  // 7. CONTROL DE INTERACCIONES Y PESTAÑAS DEL DASHBOARD (NAV)
   // ======================================================================
-  setupNavigation() {
+  initNavigation() {
     const navLinks = document.querySelectorAll('.nav-links a, .nav-logo, .btn-journey');
     
     navLinks.forEach(link => {
@@ -546,66 +843,29 @@ class SolemEngine {
         e.preventDefault();
         
         const targetIndex = link.getAttribute('data-index') || link.getAttribute('data-target');
+        const tabTarget = link.getAttribute('data-tab');
         
         if (targetIndex !== null && targetIndex !== undefined) {
           const idx = parseInt(targetIndex);
-          if (idx === 0) {
-            this.triggerIntroCinematic();
-          } else if (idx < 7) {
-            // Estaciones inmersivas (1 a 6)
-            const targetY = idx * window.innerHeight;
-            gsap.to(window, {
-              scrollTo: targetY,
-              duration: 1.2,
-              ease: "power3.out"
-            });
-          } else {
-            // Contacto (index 7)
-            const targetEl = document.querySelector('#sec-contact');
-            if (targetEl) {
-              const rect = targetEl.getBoundingClientRect();
-              const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-              const targetY = rect.top + scrollTop;
-              gsap.to(window, {
-                scrollTo: targetY,
-                duration: 1.4,
-                ease: "power3.out"
-              });
+          const totalScrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+          const scrollPos = (idx * 0.2) * totalScrollHeight;
+          
+          gsap.to(window, {
+            scrollTo: scrollPos,
+            duration: 1.2,
+            ease: "power2.inOut",
+            onComplete: () => {
+              if (tabTarget) {
+                this.switchDashboardTab(tabTarget);
+              }
             }
-          }
-        } else {
-          // Fallback por ID si no tiene index
-          const targetId = link.getAttribute('href');
-          const targetEl = document.querySelector(targetId);
-          if (targetEl) {
-            const rect = targetEl.getBoundingClientRect();
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            const targetY = rect.top + scrollTop;
-            
-            gsap.to(window, {
-              scrollTo: targetY,
-              duration: 1.4,
-              ease: "power3.out"
-            });
-          }
+          });
         }
         
-        // Cerrar menú móvil
+        // Cerrar menú hamburguesa móvil si está abierto
         document.getElementById('nav-links').classList.remove('open');
         document.getElementById('menu-toggle').classList.remove('open');
       });
-    });
-    
-    // Unificar detección de navegación y scroll
-    window.addEventListener('scroll', () => {
-      const nav = document.getElementById('main-nav');
-      if (window.scrollY > 50) {
-        nav.classList.add('scrolled');
-      } else {
-        nav.classList.remove('scrolled');
-      }
-      
-      this.detectActiveNavigationSection();
     });
     
     // Toggle Menú Móvil
@@ -616,300 +876,88 @@ class SolemEngine {
       menuToggle.classList.toggle('open');
       navLinksContainer.classList.toggle('open');
     });
-  }
-
-  // Actualizar indicador activo en Navbar para las estaciones inmersivas
-  updateActiveNavLink(index) {
-    const links = document.querySelectorAll('.nav-links a');
-    links.forEach((link) => {
-      const linkIdx = parseInt(link.getAttribute('data-index'));
-      if (linkIdx === index) {
-        link.classList.add('active');
-      } else {
-        link.classList.remove('active');
-      }
+    
+    // Configurar clicks internos de pestañas en el Dashboard de la Estación 4
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tabName = btn.getAttribute('data-tab-target');
+        this.switchDashboardTab(tabName);
+      });
     });
   }
 
-  // Resaltado dinámico milimétrico para tradicionales y sección de contacto
-  detectActiveNavigationSection() {
-    const scrollPos = window.scrollY;
-    const windowHeight = window.innerHeight;
-    const documentHeight = document.documentElement.scrollHeight;
+  switchDashboardTab(tabName) {
+    this.currentTab = tabName;
+    const btns = document.querySelectorAll('.tab-btn');
+    const panes = document.querySelectorAll('.tab-pane');
     
-    // A. CINEMÁTICA DE CIERRE COMPACTO (AL TOCAR FONDO ABSOLUTO)
-    if (scrollPos + windowHeight >= documentHeight - 15) {
-      this.updateActiveNavLink(7);
-      
-      if (!this.contactCinematicTriggered) {
-        this.contactCinematicTriggered = true;
-        
-        // 1. Bloquear scroll inmediatamente por 1 segundo
-        document.body.classList.add('scroll-locked');
-        const preventScroll = (e) => e.preventDefault();
-        window.addEventListener('wheel', preventScroll, { passive: false });
-        window.addEventListener('touchmove', preventScroll, { passive: false });
-        
-        // 2. Ejecutar la cinemática de colapso de partículas en 1 segundo exacto
-        gsap.killTweensOf(this);
-        if (this.coreGroup) {
-          gsap.killTweensOf(this.coreGroup.position);
-        }
-        gsap.killTweensOf(".sculpted-glass-heavy");
-        gsap.killTweensOf(".footer");
-        
-        gsap.set(".sculpted-glass-heavy", { opacity: 0, scale: 0.85 });
-        gsap.set(".footer", { opacity: 0, y: 30 });
-        
-        const closeTimeline = gsap.timeline({
-          onComplete: () => {
-            // Emerge automáticamente la card y el footer
-            gsap.to(".sculpted-glass-heavy", {
-              opacity: 1,
-              scale: 1,
-              duration: 0.6,
-              ease: "back.out(1.5)"
-            });
-            
-            gsap.to(".footer", {
-              opacity: 1,
-              y: 0,
-              duration: 0.6,
-              ease: "power2.out",
-              onComplete: () => {
-                // Desbloquear pantalla
-                document.body.classList.remove('scroll-locked');
-                window.removeEventListener('wheel', preventScroll);
-                window.removeEventListener('touchmove', preventScroll);
-              }
-            });
-          }
-        });
-        
-        closeTimeline.to(this, {
-          explosionProgress: 0.0,
-          duration: 1.0,
-          ease: "power2.inOut"
-        }, 0);
-        
-        if (this.coreGroup) {
-          closeTimeline.to(this.coreGroup.position, {
-            y: 0.0,
-            x: 0.0,
-            z: 0.0,
-            duration: 1.0,
-            ease: "power2.inOut"
-          }, 0);
-        }
-      }
-      return;
-    }
-    
-    // B. RESET SI EL USUARIO SUBE SIGNIFICATIVAMENTE DESDE CONTACTO (VOLVIENDO A LAS ESTACIONES)
-    if (scrollPos < 5.8 * windowHeight && this.contactCinematicTriggered) {
-      this.contactCinematicTriggered = false;
-      
-      // Ocultar tarjeta y footer de forma suave
-      gsap.to(".sculpted-glass-heavy", { opacity: 0, scale: 0.85, duration: 0.4 });
-      gsap.to(".footer", { opacity: 0, y: 30, duration: 0.4 });
-    }
-    
-    // C. RESALTADO REGULAR DEL NAVBAR DURANTE EL VIAJE INMERSIVO
-    if (scrollPos < windowHeight * 6.2) {
-      let activeIndex = Math.round(scrollPos / windowHeight);
-      activeIndex = Math.max(0, Math.min(6, activeIndex));
-      this.updateActiveNavLink(activeIndex);
-    } else {
-      this.updateActiveNavLink(7);
-    }
-  }
-
-  // ======================================================================
-  // 9. DINÁMICA DE PARTÍCULAS EN TIEMPO REAL (UPDATE DE FÍSICA)
-  // ======================================================================
-  updateParticlesPhysics(elapsedTime) {
-    if (!this.galaxy) return;
-    
-    const positions = this.galaxy.geometry.attributes.position.array;
-    const count = this.galaxyParams.count;
-    
-    // Calcular factores de interpolación no lineales para despejar el pasillo inmediatamente
-    const ep = Math.max(0.0, Math.min(1.0, this.explosionProgress));
-    const easeX = Math.pow(ep, 0.18);
-    const easeY = Math.pow(ep, 0.3);
-    const easeZ = Math.pow(ep, 0.3);
-    
-    for (let i = 0; i < count; i++) {
-      const idx = i * 3;
-      
-      const x = this.initialPositions[idx];
-      const y = this.initialPositions[idx + 1];
-      const z = this.initialPositions[idx + 2];
-      
-      // A. Rotación kepleriana fluida de la galaxia
-      // Se ralentiza suavemente cuando easeX se acerca a 1 (apertura del pasillo)
-      const angle = this.galaxySpeedOffsets[i] * elapsedTime * (1.0 - easeX);
-      
-      const rx_base = x * Math.cos(angle) - z * Math.sin(angle);
-      const rz_base = x * Math.sin(angle) + z * Math.cos(angle);
-      const ry_base = y + Math.sin(elapsedTime * this.galaxySpeedOffsets[i] * 2.0) * 0.05 * (1.0 - easeY);
-      
-      // Interpolación con el estado caótico de la cinemática de introducción
-      const chaX = this.introPositions[idx];
-      const chaY = this.introPositions[idx + 1];
-      const chaZ = this.introPositions[idx + 2];
-      
-      const rx = chaX + (rx_base - chaX) * this.introProgress;
-      const ry = chaY + (ry_base - chaY) * this.introProgress;
-      const rz = chaZ + (rz_base - chaZ) * this.introProgress;
-      
-      // B. Coordenadas objetivo en las columnas laterales (Bandas anchas)
-      // El pasillo central (x = 0) queda vacío absoluto al forzar la separación en los extremos
-      let tx = this.normalizedTargetX[i] * this.columnX;
-      let ty = this.targetY[i];
-      let tz = this.targetZ[i];
-      
-      // C. Añadir movimiento senoidal dinámico (oleaje/respiración) de las columnas
-      if (ep > 0.01) {
-        // Ondulación horizontal basada en la altura y el tiempo
-        tx += Math.sin(elapsedTime * 1.2 + ty * 0.35) * 0.4 * easeX * (Math.abs(this.normalizedTargetX[i]) * 0.4);
-        // Oscilación vertical suave
-        ty += Math.cos(elapsedTime * 0.8 + tx * 0.25) * 0.25 * easeY;
-      }
-      
-      // D. Interpolación no lineal basada en los exponentes de apertura
-      let interpX = rx + (tx - rx) * easeX;
-      let interpY = ry + (ty - ry) * easeY;
-      let interpZ = rz + (tz - rz) * easeZ;
-      
-      // E. Interacción Magnética con el Mouse (Hover local)
-      if (this.mouseWorld && ep > 0.05) {
-        const dx = interpX - this.mouseWorld.x;
-        const dy = interpY - this.mouseWorld.y;
-        const distSq = dx * dx + dy * dy;
-        const hoverRadius = 2.4;
-        const hoverRadiusSq = hoverRadius * hoverRadius;
-        
-        if (distSq < hoverRadiusSq) {
-          const dist = Math.sqrt(distSq);
-          if (dist > 0.001) {
-            // Fuerza inversamente proporcional a la distancia
-            const force = (hoverRadius - dist) / hoverRadius; 
-            const pushIntensity = 1.0 * force * easeX;
-            
-            interpX += (dx / dist) * pushIntensity;
-            interpY += (dy / dist) * pushIntensity;
-            
-            // Añadir una vibración magnética sutil
-            const vibration = (Math.sin(elapsedTime * 28.0 + i) * 0.08) * force * easeX;
-            interpX += vibration;
-            interpY += vibration;
-          }
-        }
-      }
-      
-      positions[idx] = interpX;
-      positions[idx + 1] = interpY;
-      positions[idx + 2] = interpZ;
-    }
-    
-    this.galaxy.geometry.attributes.position.needsUpdate = true;
-  }
-
-  // ======================================================================
-  // 10. BUCLE DE FRAME PRINCIPAL (60 FPS CON INTERPOLACIONES)
-  // ======================================================================
-  animate() {
-    requestAnimationFrame(() => this.animate());
-    
-    const elapsedTime = this.clock.getElapsedTime();
-    
-    // A. Actualizar física de las partículas de la Galaxia/Pasillo
-    this.updateParticlesPhysics(elapsedTime);
-    
-    // B. Sistema de profundidad de paralaje en Y para partículas fijas de fondo
-    if (this.bgPoints && this.coreGroup) {
-      // Los cúmulos nebulares y polvo de fondo permanecen fijos o se mueven a velocidad ultra-lenta en Y.
-      // Así la esfera central simula descender físicamente a través de ellos.
-      this.bgPoints.position.y = this.coreGroup.position.y * 0.82;
-    }
-    
-    // C. Animaciones Rotativas de Mallas del Núcleo Central
-    if (this.coreGroup) {
-      if (this.explosionProgress > 0.01 || this.introActive) {
-        // En movimiento, pasillo o cinemática: la esfera rota, pulsa y viaja
-        this.innerSphere.rotation.y += 0.009;
-        this.innerSphere.rotation.x += 0.005;
-        
-        this.outerShell.rotation.y -= 0.006;
-        this.outerShell.rotation.z += 0.008;
-        
-        // Latido electromagnético en escala
-        const pulseScale = 1.0 + Math.sin(elapsedTime * 3.6) * 0.055;
-        this.innerSphere.scale.set(pulseScale, pulseScale, pulseScale);
+    btns.forEach(btn => {
+      if (btn.getAttribute('data-tab-target') === tabName) {
+        btn.classList.add('active');
       } else {
-        // Hero o Colapso total: la esfera está perfectamente estática en rotación y escala
-        this.innerSphere.rotation.set(0, 0, 0);
-        this.outerShell.rotation.set(0, 0, 0);
-        this.innerSphere.scale.set(1.0, 1.0, 1.0);
-        
-        // Garantizar centrado perfecto absoluto en el Hero
-        if (window.scrollY === 0 && !this.introActive) {
-          this.coreGroup.position.set(0, 0, 0);
-        }
+        btn.classList.remove('active');
       }
-      
-      // D. Intercalado de Inercia de Ratón (Paralaje Real de Cámara)
-      this.mouse.x += (this.targetMouse.x * this.parallaxIntensity - this.mouse.x) * 0.075;
-      this.mouse.y += (this.targetMouse.y * this.parallaxIntensity - this.mouse.y) * 0.075;
-      
-      this.camera.position.x = this.baseCameraPos.x + this.mouse.x;
-      this.camera.position.y = this.baseCameraPos.y - this.mouse.y;
-      
-      // Apuntar la cámara hacia la posición vertical actual del núcleo
-      this.camera.lookAt(this.coreGroup.position);
-    }
+    });
     
-    // E. Renderizado del Frame
-    this.renderer.render(this.scene, this.camera);
+    panes.forEach(pane => {
+      if (pane.id === `pane-${tabName}`) {
+        pane.classList.add('active');
+      } else {
+        pane.classList.remove('active');
+      }
+    });
+    
+    // Sincronizar inmediatamente la barra de navegación superior
+    this.updateActiveSlide(this.scrollObj.progress);
+  }
+
+  initInteraction() {
+    window.addEventListener('mousemove', (e) => {
+      this.mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      
+      // Proyección inercial al plano 3D
+      if (this.camera) {
+        const vector = new THREE.Vector3(this.mouse.x, this.mouse.y, 0.5);
+        vector.unproject(this.camera);
+        const dir = vector.sub(this.camera.position).normalize();
+        const distance = -this.camera.position.z / dir.z;
+        this.mouseWorld.copy(this.camera.position).add(dir.multiplyScalar(distance));
+      }
+    });
+    
+    window.addEventListener('mouseleave', () => {
+      this.mouseWorld.set(9999, 9999, 0); // Ocultar fuera de foco
+    });
+    
+    // Listener reactivo a resize inteligente (QA anti-rotura)
+    window.addEventListener('resize', () => {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      
+      ScrollTrigger.refresh();
+      if (this.masterTimeline) {
+        this.masterTimeline.invalidate();
+      }
+    });
+    
+    // Scroll header background toggle
+    window.addEventListener('scroll', () => {
+      const nav = document.getElementById('main-nav');
+      if (window.scrollY > 40) {
+        nav.classList.add('scrolled');
+      } else {
+        nav.classList.remove('scrolled');
+      }
+    });
   }
 }
 
-// Inicialización del Motor una vez que el DOM esté completamente cargado
+// Inicialización del motor
 window.addEventListener('DOMContentLoaded', () => {
-  // Polyfill del plugin ScrollTo si no está cargado
-  if (window.gsap && !window.gsap.plugins.scrollTo) {
-    gsap.registerEffect({
-      name: "scrollToNative",
-      effect: (targets, config) => {
-        const start = window.scrollY;
-        const change = config.y - start;
-        const obj = { val: 0 };
-        return gsap.to(obj, {
-          val: 1,
-          duration: config.duration || 1,
-          ease: config.ease || "power3.out",
-          onUpdate: () => {
-            window.scrollTo(0, start + change * obj.val);
-          }
-        });
-      }
-    });
-    
-    gsap.install(window);
-    
-    const originalTo = gsap.to;
-    gsap.to = function(target, vars) {
-      if (target === window && vars.scrollTo !== undefined) {
-        const scrollY = vars.scrollTo;
-        const duration = vars.duration;
-        const ease = vars.ease;
-        return gsap.effects.scrollToNative(window, { y: scrollY, duration, ease });
-      }
-      return originalTo.apply(this, arguments);
-    };
-  }
-  
-  // Instanciar el motor
-  window.solemEngine = new SolemEngine();
+  window.solemEngine = new QuantumEngine();
 });
