@@ -232,48 +232,36 @@ class SolemEngine {
   // 3B. CREADOR DEL SEGUNDO SISTEMA DE PARTÍCULAS (DEPTH BACKGROUND)
   // ======================================================================
   createBackgroundStars() {
-    const count = 7500;
+    const count = 3500;
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     
-    // Centros de cúmulos de nebulosas galácticas en profundidad
-    const clusters = [
-      { x: -9, y: 5, z: -22, r: 0.0, g: 0.95, b: 1.0 },    // Nebulosa Cian
-      { x: 9, y: -6, z: -18, r: 0.8, g: 0.0, b: 1.0 },     // Nebulosa Púrpura
-      { x: -6, y: -9, z: -26, r: 1.0, g: 0.08, b: 0.58 },  // Nebulosa Magenta
-      { x: 8, y: 8, z: -20, r: 0.0, g: 0.45, b: 1.0 },     // Nebulosa Azul Eléctrica
-      { x: 0, y: 0, z: -32, r: 0.4, g: 0.1, b: 0.85 }      // Polvo Cósmico Central Lejano
+    // Paleta de colores cósmicos sutiles pero visibles
+    const colorPalette = [
+      new THREE.Color(0x005b6b), // Cian nebular oscuro
+      new THREE.Color(0x3d0066), // Violeta nebular oscuro
+      new THREE.Color(0x5c1445), // Magenta nebular oscuro
+      new THREE.Color(0x1a3366), // Azul profundo sutil
+      new THREE.Color(0x66666e)  // Polvo estelar gris/blanco sutil
     ];
     
     for (let i = 0; i < count; i++) {
-      // Asignar a un cluster aleatorio
-      const cluster = clusters[Math.floor(Math.random() * clusters.length)];
+      // Distribución en caja tridimensional profunda
+      // X de -18 a 18
+      positions[i * 3] = (Math.random() - 0.5) * 36;
+      // Y de -38 a 18 (para dar cobertura vertical completa al bajar)
+      positions[i * 3 + 1] = (Math.random() - 0.5) * 56 - 10;
+      // Z de -45 a -12 (lejano)
+      positions[i * 3 + 2] = -12 - Math.random() * 33;
       
-      // Dispersión gaussiana esférica alrededor del cluster
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const radius = Math.pow(Math.random(), 1.7) * 7.5; // Concentración de gas
+      // Asignar color sutil de la paleta
+      const baseColor = colorPalette[Math.floor(Math.random() * colorPalette.length)];
+      // Añadir pequeña variación aleatoria de brillo
+      const brightness = 0.75 + Math.random() * 0.5;
       
-      const dx = radius * Math.sin(phi) * Math.cos(theta);
-      const dy = radius * Math.sin(phi) * Math.sin(theta);
-      const dz = radius * Math.cos(phi) * 1.8; // Mayor volumen en profundidad
-      
-      positions[i * 3] = cluster.x + dx;
-      positions[i * 3 + 1] = cluster.y + dy;
-      positions[i * 3 + 2] = cluster.z + dz;
-      
-      // Mezcla de colores: 60% colores nebulares, 40% estrellas lejanas blancas
-      const mixRatio = Math.random();
-      if (mixRatio < 0.6) {
-        colors[i * 3] = cluster.r * (0.35 + Math.random() * 0.65);
-        colors[i * 3 + 1] = cluster.g * (0.35 + Math.random() * 0.65);
-        colors[i * 3 + 2] = cluster.b * (0.35 + Math.random() * 0.65);
-      } else {
-        // Polvo de estrellas blanco/azulado neutro
-        colors[i * 3] = 0.8 + Math.random() * 0.2;
-        colors[i * 3 + 1] = 0.85 + Math.random() * 0.15;
-        colors[i * 3 + 2] = 1.0;
-      }
+      colors[i * 3] = Math.min(1.0, baseColor.r * brightness);
+      colors[i * 3 + 1] = Math.min(1.0, baseColor.g * brightness);
+      colors[i * 3 + 2] = Math.min(1.0, baseColor.b * brightness);
     }
     
     const geometry = new THREE.BufferGeometry();
@@ -281,14 +269,14 @@ class SolemEngine {
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     
     const material = new THREE.PointsMaterial({
-      size: 0.085,
+      size: 0.22,
       sizeAttenuation: true,
       depthWrite: false,
       transparent: true,
       blending: THREE.AdditiveBlending,
       vertexColors: true,
       map: this.createCircleTexture(),
-      opacity: 0.68
+      opacity: 0.85
     });
     
     this.bgPoints = new THREE.Points(geometry, material);
@@ -649,14 +637,8 @@ class SolemEngine {
     const windowHeight = window.innerHeight;
     const documentHeight = document.documentElement.scrollHeight;
     
-    // A. DETECCIÓN DE INTRO EN TOPE CERO
-    if (scrollPos === 0 && !this.introActive) {
-      this.triggerIntroCinematic();
-      return;
-    }
-    
-    // B. CINEMÁTICA DE CIERRE COMPACTO (AL TOCAR FONDO ABSOLUTO)
-    if (scrollPos + windowHeight >= documentHeight - 5) {
+    // A. CINEMÁTICA DE CIERRE COMPACTO (AL TOCAR FONDO ABSOLUTO)
+    if (scrollPos + windowHeight >= documentHeight - 15) {
       this.updateActiveNavLink(7);
       
       if (!this.contactCinematicTriggered) {
@@ -670,7 +652,9 @@ class SolemEngine {
         
         // 2. Ejecutar la cinemática de colapso de partículas en 1 segundo exacto
         gsap.killTweensOf(this);
-        gsap.killTweensOf(this.coreGroup.position);
+        if (this.coreGroup) {
+          gsap.killTweensOf(this.coreGroup.position);
+        }
         gsap.killTweensOf(".sculpted-glass-heavy");
         gsap.killTweensOf(".footer");
         
@@ -708,40 +692,29 @@ class SolemEngine {
           ease: "power2.inOut"
         }, 0);
         
-        closeTimeline.to(this.coreGroup.position, {
-          y: 0.0,
-          x: 0.0,
-          z: 0.0,
-          duration: 1.0,
-          ease: "power2.inOut"
-        }, 0);
+        if (this.coreGroup) {
+          closeTimeline.to(this.coreGroup.position, {
+            y: 0.0,
+            x: 0.0,
+            z: 0.0,
+            duration: 1.0,
+            ease: "power2.inOut"
+          }, 0);
+        }
       }
       return;
     }
     
-    // C. RESET SI EL USUARIO SUBE DESDE CONTACTO
-    if (scrollPos + windowHeight < documentHeight - 120 && this.contactCinematicTriggered) {
+    // B. RESET SI EL USUARIO SUBE SIGNIFICATIVAMENTE DESDE CONTACTO (VOLVIENDO A LAS ESTACIONES)
+    if (scrollPos < 5.8 * windowHeight && this.contactCinematicTriggered) {
       this.contactCinematicTriggered = false;
       
-      // Ocultar tarjeta y footer de inmediato
+      // Ocultar tarjeta y footer de forma suave
       gsap.to(".sculpted-glass-heavy", { opacity: 0, scale: 0.85, duration: 0.4 });
       gsap.to(".footer", { opacity: 0, y: 30, duration: 0.4 });
-      
-      // Animar las partículas e imán de la esfera de vuelta a su estado expandido
-      gsap.to(this, {
-        explosionProgress: 1.0,
-        duration: 0.8,
-        ease: "power2.out"
-      });
-      
-      gsap.to(this.coreGroup.position, {
-        y: -7.2,
-        duration: 0.8,
-        ease: "power2.out"
-      });
     }
     
-    // D. RESALTADO REGULAR DEL NAVBAR DURANTE EL VIAJE INMERSIVO
+    // C. RESALTADO REGULAR DEL NAVBAR DURANTE EL VIAJE INMERSIVO
     if (scrollPos < windowHeight * 6.2) {
       let activeIndex = Math.round(scrollPos / windowHeight);
       activeIndex = Math.max(0, Math.min(6, activeIndex));
@@ -760,6 +733,12 @@ class SolemEngine {
     const positions = this.galaxy.geometry.attributes.position.array;
     const count = this.galaxyParams.count;
     
+    // Calcular factores de interpolación no lineales para despejar el pasillo inmediatamente
+    const ep = Math.max(0.0, Math.min(1.0, this.explosionProgress));
+    const easeX = Math.pow(ep, 0.18);
+    const easeY = Math.pow(ep, 0.3);
+    const easeZ = Math.pow(ep, 0.3);
+    
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
       
@@ -768,12 +747,12 @@ class SolemEngine {
       const z = this.initialPositions[idx + 2];
       
       // A. Rotación kepleriana fluida de la galaxia
-      // Se ralentiza suavemente cuando explosionProgress se acerca a 1 (apertura del pasillo)
-      const angle = this.galaxySpeedOffsets[i] * elapsedTime * (1.0 - this.explosionProgress);
+      // Se ralentiza suavemente cuando easeX se acerca a 1 (apertura del pasillo)
+      const angle = this.galaxySpeedOffsets[i] * elapsedTime * (1.0 - easeX);
       
       const rx_base = x * Math.cos(angle) - z * Math.sin(angle);
       const rz_base = x * Math.sin(angle) + z * Math.cos(angle);
-      const ry_base = y + Math.sin(elapsedTime * this.galaxySpeedOffsets[i] * 2.0) * 0.05 * (1.0 - this.explosionProgress);
+      const ry_base = y + Math.sin(elapsedTime * this.galaxySpeedOffsets[i] * 2.0) * 0.05 * (1.0 - easeY);
       
       // Interpolación con el estado caótico de la cinemática de introducción
       const chaX = this.introPositions[idx];
@@ -791,20 +770,20 @@ class SolemEngine {
       let tz = this.targetZ[i];
       
       // C. Añadir movimiento senoidal dinámico (oleaje/respiración) de las columnas
-      if (this.explosionProgress > 0.01) {
+      if (ep > 0.01) {
         // Ondulación horizontal basada en la altura y el tiempo
-        tx += Math.sin(elapsedTime * 1.2 + ty * 0.35) * 0.4 * this.explosionProgress * (Math.abs(this.normalizedTargetX[i]) * 0.4);
+        tx += Math.sin(elapsedTime * 1.2 + ty * 0.35) * 0.4 * easeX * (Math.abs(this.normalizedTargetX[i]) * 0.4);
         // Oscilación vertical suave
-        ty += Math.cos(elapsedTime * 0.8 + tx * 0.25) * 0.25 * this.explosionProgress;
+        ty += Math.cos(elapsedTime * 0.8 + tx * 0.25) * 0.25 * easeY;
       }
       
-      // D. Interpolación lineal basada en explosionProgress
-      let interpX = rx + (tx - rx) * this.explosionProgress;
-      let interpY = ry + (ty - ry) * this.explosionProgress;
-      let interpZ = rz + (tz - rz) * this.explosionProgress;
+      // D. Interpolación no lineal basada en los exponentes de apertura
+      let interpX = rx + (tx - rx) * easeX;
+      let interpY = ry + (ty - ry) * easeY;
+      let interpZ = rz + (tz - rz) * easeZ;
       
       // E. Interacción Magnética con el Mouse (Hover local)
-      if (this.mouseWorld && this.explosionProgress > 0.05) {
+      if (this.mouseWorld && ep > 0.05) {
         const dx = interpX - this.mouseWorld.x;
         const dy = interpY - this.mouseWorld.y;
         const distSq = dx * dx + dy * dy;
@@ -816,13 +795,13 @@ class SolemEngine {
           if (dist > 0.001) {
             // Fuerza inversamente proporcional a la distancia
             const force = (hoverRadius - dist) / hoverRadius; 
-            const pushIntensity = 1.0 * force * this.explosionProgress;
+            const pushIntensity = 1.0 * force * easeX;
             
             interpX += (dx / dist) * pushIntensity;
             interpY += (dy / dist) * pushIntensity;
             
             // Añadir una vibración magnética sutil
-            const vibration = (Math.sin(elapsedTime * 28.0 + i) * 0.08) * force * this.explosionProgress;
+            const vibration = (Math.sin(elapsedTime * 28.0 + i) * 0.08) * force * easeX;
             interpX += vibration;
             interpY += vibration;
           }
