@@ -55,6 +55,12 @@ body {
   background-color: var(--bg-color);
 }
 
+body.scroll-locked {
+  overflow: hidden !important;
+  height: 100vh !important;
+  touch-action: none !important;
+}
+
 /* Scrollbar Personalizado Cyberpunk */
 ::-webkit-scrollbar {
   width: 8px;
@@ -841,6 +847,8 @@ body {
   padding: 4rem 2rem;
   background: #010204;
   border-top: 1px solid rgba(255, 255, 255, 0.03);
+  opacity: 0;
+  transform: translateY(30px);
 }
 
 .footer-container {

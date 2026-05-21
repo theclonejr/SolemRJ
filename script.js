@@ -12,6 +12,7 @@ class SolemEngine {
     
     // Objetos 3D Principales
     this.galaxy = null;
+    this.bgPoints = null; // Segundo sistema de partículas (fondo profundo)
     this.coreGroup = null;
     this.innerSphere = null;
     this.outerShell = null;
@@ -27,7 +28,7 @@ class SolemEngine {
       outermostColor: '#ff1493'
     };
     
-    // Posición base de la cámara (GSAP animará esto)
+    // Posición base de la cámara
     this.baseCameraPos = { x: 0, y: 0, z: 8.5 };
     
     // Datos de interacción con el Mouse (Paralaje)
@@ -40,6 +41,13 @@ class SolemEngine {
     this.explosionProgress = 0.0;
     this.columnX = 4.8; // Coordenada X base para las columnas laterales
     
+    // Cinemática de Introducción
+    this.introProgress = 1.0;
+    this.introActive = false;
+    
+    // Cinemática de Cierre de Contacto
+    this.contactCinematicTriggered = false;
+    
     // Control de tiempo para animaciones
     this.clock = new THREE.Clock();
     
@@ -47,12 +55,18 @@ class SolemEngine {
     this.initThree();
     this.updateColumnCoords();
     this.createGalaxy();
+    this.createBackgroundStars();
     this.createCentralCore();
     this.setupLights();
     this.setupInteraction();
     
     // Inicialización de Animaciones Frontales (GSAP)
     this.initAnimations();
+    
+    // Arrancar la cinemática de introducción inmediatamente al cargar
+    setTimeout(() => {
+      this.triggerIntroCinematic();
+    }, 100);
     
     // Arrancar el bucle de renderizado
     this.animate();
@@ -85,6 +99,9 @@ class SolemEngine {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.2;
+    
+    // Asegurar opacidad al 100% de inicio a fin en el canvas
+    this.canvas.style.opacity = '1';
   }
 
   // ======================================================================
@@ -117,6 +134,7 @@ class SolemEngine {
     
     // Arreglos de estado
     this.initialPositions = new Float32Array(count * 3);
+    this.introPositions = new Float32Array(count * 3); // Dispersión caótica inicial
     this.normalizedTargetX = new Float32Array(count); // -1 = Izquierda, +1 = Derecha
     this.targetY = new Float32Array(count);
     this.targetZ = new Float32Array(count);
@@ -149,9 +167,14 @@ class SolemEngine {
       this.initialPositions[i * 3 + 1] = y;
       this.initialPositions[i * 3 + 2] = z;
       
-      // B. Coordenadas de las Dos Columnas Laterales (Bandas anchas que se extienden a los bordes)
-      // Si la partícula está en el lado izquierdo (x < 0) va a la columna izquierda, si no, a la derecha.
-      // normalizedTargetX representa el factor multiplicador de columnX.
+      // B. Coordenadas de dispersión caótica inicial (Intro Progress = 0)
+      const angleIntro = Math.random() * Math.PI * 2;
+      const radiusIntro = 15.0 + Math.random() * 25.0;
+      this.introPositions[i * 3] = Math.cos(angleIntro) * radiusIntro + (Math.random() - 0.5) * 8.0;
+      this.introPositions[i * 3 + 1] = (Math.random() - 0.5) * 22.0;
+      this.introPositions[i * 3 + 2] = Math.sin(angleIntro) * radiusIntro + (Math.random() - 0.5) * 8.0;
+      
+      // C. Coordenadas de las Dos Columnas Laterales (Bandas anchas que se extienden a los bordes)
       // Debe ir de 1.0 (borde del pasillo) a ~3.2 (borde exterior de la pantalla), garantizando pasillo limpio.
       if (x < 0) {
         this.normalizedTargetX[i] = -1.0 - Math.random() * 2.2;
@@ -168,7 +191,7 @@ class SolemEngine {
       // Velocidad individual de rotación kepleriana
       this.galaxySpeedOffsets[i] = (Math.random() * 0.25 + 0.08) * (1 / (r * 0.5 + 0.4));
       
-      // C. Interpolación de Colores Cósmicos
+      // D. Interpolación de Colores Cósmicos
       const mixedColor = colorCore.clone();
       const radiusRatio = r / this.galaxyParams.radius;
       
@@ -203,6 +226,73 @@ class SolemEngine {
     
     // Forzar actualización inicial
     this.updateParticlesPhysics(0);
+  }
+
+  // ======================================================================
+  // 3B. CREADOR DEL SEGUNDO SISTEMA DE PARTÍCULAS (DEPTH BACKGROUND)
+  // ======================================================================
+  createBackgroundStars() {
+    const count = 7500;
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    
+    // Centros de cúmulos de nebulosas galácticas en profundidad
+    const clusters = [
+      { x: -9, y: 5, z: -22, r: 0.0, g: 0.95, b: 1.0 },    // Nebulosa Cian
+      { x: 9, y: -6, z: -18, r: 0.8, g: 0.0, b: 1.0 },     // Nebulosa Púrpura
+      { x: -6, y: -9, z: -26, r: 1.0, g: 0.08, b: 0.58 },  // Nebulosa Magenta
+      { x: 8, y: 8, z: -20, r: 0.0, g: 0.45, b: 1.0 },     // Nebulosa Azul Eléctrica
+      { x: 0, y: 0, z: -32, r: 0.4, g: 0.1, b: 0.85 }      // Polvo Cósmico Central Lejano
+    ];
+    
+    for (let i = 0; i < count; i++) {
+      // Asignar a un cluster aleatorio
+      const cluster = clusters[Math.floor(Math.random() * clusters.length)];
+      
+      // Dispersión gaussiana esférica alrededor del cluster
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const radius = Math.pow(Math.random(), 1.7) * 7.5; // Concentración de gas
+      
+      const dx = radius * Math.sin(phi) * Math.cos(theta);
+      const dy = radius * Math.sin(phi) * Math.sin(theta);
+      const dz = radius * Math.cos(phi) * 1.8; // Mayor volumen en profundidad
+      
+      positions[i * 3] = cluster.x + dx;
+      positions[i * 3 + 1] = cluster.y + dy;
+      positions[i * 3 + 2] = cluster.z + dz;
+      
+      // Mezcla de colores: 60% colores nebulares, 40% estrellas lejanas blancas
+      const mixRatio = Math.random();
+      if (mixRatio < 0.6) {
+        colors[i * 3] = cluster.r * (0.35 + Math.random() * 0.65);
+        colors[i * 3 + 1] = cluster.g * (0.35 + Math.random() * 0.65);
+        colors[i * 3 + 2] = cluster.b * (0.35 + Math.random() * 0.65);
+      } else {
+        // Polvo de estrellas blanco/azulado neutro
+        colors[i * 3] = 0.8 + Math.random() * 0.2;
+        colors[i * 3 + 1] = 0.85 + Math.random() * 0.15;
+        colors[i * 3 + 2] = 1.0;
+      }
+    }
+    
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    
+    const material = new THREE.PointsMaterial({
+      size: 0.085,
+      sizeAttenuation: true,
+      depthWrite: false,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+      map: this.createCircleTexture(),
+      opacity: 0.68
+    });
+    
+    this.bgPoints = new THREE.Points(geometry, material);
+    this.scene.add(this.bgPoints);
   }
 
   // ======================================================================
@@ -320,62 +410,74 @@ class SolemEngine {
   }
 
   // ======================================================================
+  // 6B. CINEMÁTICA DE INTRODUCCIÓN CON BLOQUEO (0.0 A 1.5s)
+  // ======================================================================
+  triggerIntroCinematic() {
+    if (this.introActive) return;
+    this.introActive = true;
+    
+    // Bloquear scroll inmediatamente
+    document.body.classList.add('scroll-locked');
+    
+    // Prevenir eventos de scroll
+    const preventScroll = (e) => e.preventDefault();
+    window.addEventListener('wheel', preventScroll, { passive: false });
+    window.addEventListener('touchmove', preventScroll, { passive: false });
+    
+    // Ir al tope absoluto sin rebotes
+    window.scrollTo(0, 0);
+    
+    // Forzar estados de inicio de la intro
+    this.introProgress = 0.0;
+    this.explosionProgress = 0.0;
+    this.contactCinematicTriggered = false;
+    
+    if (this.coreGroup) {
+      this.coreGroup.position.set(0, 0, 0);
+      this.coreGroup.scale.set(0, 0, 0);
+    }
+    
+    // Resetear tarjetas y footer por seguridad en recargas
+    gsap.killTweensOf(".sculpted-glass-heavy");
+    gsap.killTweensOf(".footer");
+    gsap.set(".sculpted-glass-heavy", { opacity: 0, scale: 0.85 });
+    gsap.set(".footer", { opacity: 0, y: 30 });
+    
+    // Iniciar animación con GSAP
+    gsap.killTweensOf(this);
+    if (this.coreGroup) gsap.killTweensOf(this.coreGroup.scale);
+    
+    gsap.to(this, {
+      introProgress: 1.0,
+      duration: 1.5,
+      ease: "power3.out",
+      onComplete: () => {
+        // Desbloquear pantalla al terminar la cinemática
+        document.body.classList.remove('scroll-locked');
+        window.removeEventListener('wheel', preventScroll);
+        window.removeEventListener('touchmove', preventScroll);
+        this.introActive = false;
+        
+        ScrollTrigger.refresh();
+      }
+    });
+    
+    if (this.coreGroup) {
+      gsap.to(this.coreGroup.scale, {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+        duration: 1.5,
+        ease: "back.out(1.6)"
+      });
+    }
+  }
+
+  // ======================================================================
   // 7. TIMELINE DE PASILLO Y COLAPSO GALÁCTICO (GSAP + SCROLLTRIGGER)
   // ======================================================================
   initAnimations() {
     gsap.registerPlugin(ScrollTrigger);
-    
-    // A. Control de Opacidad del Canvas Principal
-    // Fadecito sutil detrás de las tarjetas para legibilidad
-    gsap.to(this.canvas, {
-      opacity: 0.12,
-      scrollTrigger: {
-        trigger: ".journey-wrapper",
-        start: "top 20%",
-        end: "bottom 80%",
-        scrub: true
-      }
-    });
-    
-    // B. TIMELINE SECUENCIAL EXCEPCIONAL PARA EL CIERRE DE CONTACTO
-    // Ajusta milimétricamente el tramo final de la transición de contacto
-    const contactTimeline = gsap.timeline({
-      scrollTrigger: {
-        trigger: "#sec-contact",
-        start: "top 95%",
-        end: "top 20%",
-        scrub: 1.0
-      }
-    });
-    
-    // Paso 1 (0.0 a 0.5 de la transición): colapso de partículas a la galaxia espiral y centrado de la esfera
-    contactTimeline.to(this, {
-      explosionProgress: 0.0,
-      duration: 0.5,
-      ease: "power2.inOut"
-    }, 0);
-    
-    contactTimeline.to(this.coreGroup.position, {
-      y: 0.0,
-      x: 0.0,
-      z: 0.0,
-      duration: 0.5,
-      ease: "power2.inOut"
-    }, 0);
-    
-    contactTimeline.to(this.canvas, {
-      opacity: 0.85,
-      duration: 0.5,
-      ease: "power2.inOut"
-    }, 0);
-    
-    // Paso 2 (0.5 a 1.0 de la transición): emerge suavemente la tarjeta gigante con fade-in y escala
-    contactTimeline.to(".sculpted-glass-heavy", {
-      opacity: 1,
-      scale: 1,
-      duration: 0.5,
-      ease: "back.out(1.5)"
-    }, 0.5);
     
     // C. Selección de Slides
     const slides = [
@@ -459,8 +561,10 @@ class SolemEngine {
         
         if (targetIndex !== null && targetIndex !== undefined) {
           const idx = parseInt(targetIndex);
-          if (idx < 7) {
-            // Estaciones inmersivas (0 a 6)
+          if (idx === 0) {
+            this.triggerIntroCinematic();
+          } else if (idx < 7) {
+            // Estaciones inmersivas (1 a 6)
             const targetY = idx * window.innerHeight;
             gsap.to(window, {
               scrollTo: targetY,
@@ -543,15 +647,106 @@ class SolemEngine {
   detectActiveNavigationSection() {
     const scrollPos = window.scrollY;
     const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight;
     
-    // El wrapper inmersivo ocupa 700vh (0 a 600vh de scroll markers + 100vh de transición a contacto)
-    // El límite para estar en las estaciones es 6.2 * windowHeight
+    // A. DETECCIÓN DE INTRO EN TOPE CERO
+    if (scrollPos === 0 && !this.introActive) {
+      this.triggerIntroCinematic();
+      return;
+    }
+    
+    // B. CINEMÁTICA DE CIERRE COMPACTO (AL TOCAR FONDO ABSOLUTO)
+    if (scrollPos + windowHeight >= documentHeight - 5) {
+      this.updateActiveNavLink(7);
+      
+      if (!this.contactCinematicTriggered) {
+        this.contactCinematicTriggered = true;
+        
+        // 1. Bloquear scroll inmediatamente por 1 segundo
+        document.body.classList.add('scroll-locked');
+        const preventScroll = (e) => e.preventDefault();
+        window.addEventListener('wheel', preventScroll, { passive: false });
+        window.addEventListener('touchmove', preventScroll, { passive: false });
+        
+        // 2. Ejecutar la cinemática de colapso de partículas en 1 segundo exacto
+        gsap.killTweensOf(this);
+        gsap.killTweensOf(this.coreGroup.position);
+        gsap.killTweensOf(".sculpted-glass-heavy");
+        gsap.killTweensOf(".footer");
+        
+        gsap.set(".sculpted-glass-heavy", { opacity: 0, scale: 0.85 });
+        gsap.set(".footer", { opacity: 0, y: 30 });
+        
+        const closeTimeline = gsap.timeline({
+          onComplete: () => {
+            // Emerge automáticamente la card y el footer
+            gsap.to(".sculpted-glass-heavy", {
+              opacity: 1,
+              scale: 1,
+              duration: 0.6,
+              ease: "back.out(1.5)"
+            });
+            
+            gsap.to(".footer", {
+              opacity: 1,
+              y: 0,
+              duration: 0.6,
+              ease: "power2.out",
+              onComplete: () => {
+                // Desbloquear pantalla
+                document.body.classList.remove('scroll-locked');
+                window.removeEventListener('wheel', preventScroll);
+                window.removeEventListener('touchmove', preventScroll);
+              }
+            });
+          }
+        });
+        
+        closeTimeline.to(this, {
+          explosionProgress: 0.0,
+          duration: 1.0,
+          ease: "power2.inOut"
+        }, 0);
+        
+        closeTimeline.to(this.coreGroup.position, {
+          y: 0.0,
+          x: 0.0,
+          z: 0.0,
+          duration: 1.0,
+          ease: "power2.inOut"
+        }, 0);
+      }
+      return;
+    }
+    
+    // C. RESET SI EL USUARIO SUBE DESDE CONTACTO
+    if (scrollPos + windowHeight < documentHeight - 120 && this.contactCinematicTriggered) {
+      this.contactCinematicTriggered = false;
+      
+      // Ocultar tarjeta y footer de inmediato
+      gsap.to(".sculpted-glass-heavy", { opacity: 0, scale: 0.85, duration: 0.4 });
+      gsap.to(".footer", { opacity: 0, y: 30, duration: 0.4 });
+      
+      // Animar las partículas e imán de la esfera de vuelta a su estado expandido
+      gsap.to(this, {
+        explosionProgress: 1.0,
+        duration: 0.8,
+        ease: "power2.out"
+      });
+      
+      gsap.to(this.coreGroup.position, {
+        y: -7.2,
+        duration: 0.8,
+        ease: "power2.out"
+      });
+    }
+    
+    // D. RESALTADO REGULAR DEL NAVBAR DURANTE EL VIAJE INMERSIVO
     if (scrollPos < windowHeight * 6.2) {
       let activeIndex = Math.round(scrollPos / windowHeight);
       activeIndex = Math.max(0, Math.min(6, activeIndex));
       this.updateActiveNavLink(activeIndex);
     } else {
-      // Estamos en la sección de contacto
       this.updateActiveNavLink(7);
     }
   }
@@ -576,13 +771,20 @@ class SolemEngine {
       // Se ralentiza suavemente cuando explosionProgress se acerca a 1 (apertura del pasillo)
       const angle = this.galaxySpeedOffsets[i] * elapsedTime * (1.0 - this.explosionProgress);
       
-      const rx = x * Math.cos(angle) - z * Math.sin(angle);
-      const rz = x * Math.sin(angle) + z * Math.cos(angle);
+      const rx_base = x * Math.cos(angle) - z * Math.sin(angle);
+      const rz_base = x * Math.sin(angle) + z * Math.cos(angle);
+      const ry_base = y + Math.sin(elapsedTime * this.galaxySpeedOffsets[i] * 2.0) * 0.05 * (1.0 - this.explosionProgress);
       
-      // Bamboleo vertical individual de rotación
-      const ry = y + Math.sin(elapsedTime * this.galaxySpeedOffsets[i] * 2.0) * 0.05 * (1.0 - this.explosionProgress);
+      // Interpolación con el estado caótico de la cinemática de introducción
+      const chaX = this.introPositions[idx];
+      const chaY = this.introPositions[idx + 1];
+      const chaZ = this.introPositions[idx + 2];
       
-      // B. Coordenadas objetivo en las columnas laterales
+      const rx = chaX + (rx_base - chaX) * this.introProgress;
+      const ry = chaY + (ry_base - chaY) * this.introProgress;
+      const rz = chaZ + (rz_base - chaZ) * this.introProgress;
+      
+      // B. Coordenadas objetivo en las columnas laterales (Bandas anchas)
       // El pasillo central (x = 0) queda vacío absoluto al forzar la separación en los extremos
       let tx = this.normalizedTargetX[i] * this.columnX;
       let ty = this.targetY[i];
@@ -646,10 +848,17 @@ class SolemEngine {
     // A. Actualizar física de las partículas de la Galaxia/Pasillo
     this.updateParticlesPhysics(elapsedTime);
     
-    // B. Animaciones Rotativas de Mallas del Núcleo Central
+    // B. Sistema de profundidad de paralaje en Y para partículas fijas de fondo
+    if (this.bgPoints && this.coreGroup) {
+      // Los cúmulos nebulares y polvo de fondo permanecen fijos o se mueven a velocidad ultra-lenta en Y.
+      // Así la esfera central simula descender físicamente a través de ellos.
+      this.bgPoints.position.y = this.coreGroup.position.y * 0.82;
+    }
+    
+    // C. Animaciones Rotativas de Mallas del Núcleo Central
     if (this.coreGroup) {
-      if (this.explosionProgress > 0.01) {
-        // En movimiento o pasillo: la esfera rota, pulsa y viaja
+      if (this.explosionProgress > 0.01 || this.introActive) {
+        // En movimiento, pasillo o cinemática: la esfera rota, pulsa y viaja
         this.innerSphere.rotation.y += 0.009;
         this.innerSphere.rotation.x += 0.005;
         
@@ -666,12 +875,12 @@ class SolemEngine {
         this.innerSphere.scale.set(1.0, 1.0, 1.0);
         
         // Garantizar centrado perfecto absoluto en el Hero
-        if (window.scrollY === 0) {
+        if (window.scrollY === 0 && !this.introActive) {
           this.coreGroup.position.set(0, 0, 0);
         }
       }
       
-      // C. Intercalado de Inercia de Ratón (Paralaje Real de Cámara)
+      // D. Intercalado de Inercia de Ratón (Paralaje Real de Cámara)
       this.mouse.x += (this.targetMouse.x * this.parallaxIntensity - this.mouse.x) * 0.075;
       this.mouse.y += (this.targetMouse.y * this.parallaxIntensity - this.mouse.y) * 0.075;
       
@@ -682,7 +891,7 @@ class SolemEngine {
       this.camera.lookAt(this.coreGroup.position);
     }
     
-    // D. Renderizado del Frame
+    // E. Renderizado del Frame
     this.renderer.render(this.scene, this.camera);
   }
 }
