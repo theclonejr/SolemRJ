@@ -1,5 +1,5 @@
 /* ======================================================================
-   SOLEMENGINE - MOTOR INTERACTIVO COLECTIVO DE SOLEMRJ
+   SOLEMENGINE - MOTOR COLECTIVO DE VANGUARDIA DE SOLEMRJ
    ====================================================================== */
 
 class SolemEngine {
@@ -16,12 +16,12 @@ class SolemEngine {
     this.innerSphere = null;
     this.outerShell = null;
     
-    // Parámetros de la Galaxia Cósmica
+    // Parámetros de la Galaxia Cósmica (25,000 partículas en producción)
     this.galaxyParams = {
-      count: 28000,
-      radius: 12,
+      count: 25000,
+      radius: 11.5,
       arms: 3,
-      spin: 1.15,
+      spin: 1.2,
       coreColor: '#00f2fe',
       outerColor: '#7f00ff',
       outermostColor: '#ff1493'
@@ -33,13 +33,19 @@ class SolemEngine {
     // Datos de interacción con el Mouse (Paralaje)
     this.mouse = { x: 0, y: 0 };
     this.targetMouse = { x: 0, y: 0 };
-    this.parallaxIntensity = 1.6;
+    this.parallaxIntensity = 1.4;
+    
+    // Control de física dinámica (Explosión y Pasillo)
+    // 0 = Galaxia Espiral, 1 = Dos Columnas Laterales
+    this.explosionProgress = 0.0;
+    this.columnX = 4.8; // Coordenada X base para las columnas laterales
     
     // Control de tiempo para animaciones
     this.clock = new THREE.Clock();
     
     // Inicialización del Motor
     this.initThree();
+    this.updateColumnCoords();
     this.createGalaxy();
     this.createCentralCore();
     this.setupLights();
@@ -68,7 +74,7 @@ class SolemEngine {
     );
     this.camera.position.set(this.baseCameraPos.x, this.baseCameraPos.y, this.baseCameraPos.z);
     
-    // Renderizador optimizado
+    // Renderizador de alto rendimiento
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
@@ -78,11 +84,11 @@ class SolemEngine {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.25;
+    this.renderer.toneMappingExposure = 1.2;
   }
 
   // ======================================================================
-  // 2. CREACIÓN DE LA TEXTURA DE PARTÍCULA (CANVAS DINÁMICO EN MEMORIA)
+  // 2. TEXTURA RADIAL GENERADA MATEMÁTICAMENTE EN MEMORIA
   // ======================================================================
   createCircleTexture() {
     const canvas = document.createElement('canvas');
@@ -93,8 +99,8 @@ class SolemEngine {
     // Gradiente Radial de Alto Fulgor (Cian a Púrpura y Transparencia)
     const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 30);
     gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    gradient.addColorStop(0.15, 'rgba(0, 242, 254, 0.95)');
-    gradient.addColorStop(0.45, 'rgba(127, 0, 255, 0.45)');
+    gradient.addColorStop(0.12, 'rgba(0, 242, 254, 0.95)');
+    gradient.addColorStop(0.48, 'rgba(127, 0, 255, 0.45)');
     gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
     
     ctx.fillStyle = gradient;
@@ -104,51 +110,69 @@ class SolemEngine {
   }
 
   // ======================================================================
-  // 3. GENERADOR MATEMÁTICO DE GALAXIA ESPIRAL
+  // 3. GENERADOR DE FÍSICA PARA DOS COLUMNAS Y GALAXIA ESPIRAL
   // ======================================================================
   createGalaxy() {
     const count = this.galaxyParams.count;
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const speedOffsets = new Float32Array(count);
     
+    // Arreglos de estado
+    this.initialPositions = new Float32Array(count * 3);
+    this.normalizedTargetX = new Float32Array(count); // -1 = Izquierda, +1 = Derecha
+    this.targetY = new Float32Array(count);
+    this.targetZ = new Float32Array(count);
+    this.galaxySpeedOffsets = new Float32Array(count);
+    
+    const colors = new Float32Array(count * 3);
     const colorCore = new THREE.Color(this.galaxyParams.coreColor);
     const colorOuter = new THREE.Color(this.galaxyParams.outerColor);
     const colorOutermost = new THREE.Color(this.galaxyParams.outermostColor);
     
     for (let i = 0; i < count; i++) {
-      // Distribución Exponencial: Mucho más denso en el centro
+      // A. Coordenadas de la Galaxia Espiral (Estado Inicial)
       const r = Math.pow(Math.random(), 2.8) * this.galaxyParams.radius;
-      
-      // Ángulo de Brazo Espiral
       const armAngle = ((i % this.galaxyParams.arms) * Math.PI * 2) / this.galaxyParams.arms;
       const spinAngle = r * this.galaxyParams.spin;
       
-      // Dispersión Caótica (Efecto de Niebla Galáctica / Nube Estelar)
       const dispersionPower = 3;
-      const spreadFactor = 0.26 * (r * 0.35 + 0.1);
+      const spreadFactor = 0.28 * (r * 0.35 + 0.1);
       
       const randomX = Math.pow(Math.random(), dispersionPower) * (Math.random() < 0.5 ? 1 : -1) * spreadFactor;
-      const randomY = Math.pow(Math.random(), dispersionPower) * (Math.random() < 0.5 ? 1 : -1) * spreadFactor * 0.6;
+      const randomY = Math.pow(Math.random(), dispersionPower) * (Math.random() < 0.5 ? 1 : -1) * spreadFactor * 0.65;
       const randomZ = Math.pow(Math.random(), dispersionPower) * (Math.random() < 0.5 ? 1 : -1) * spreadFactor;
       
       const x = Math.cos(armAngle + spinAngle) * r + randomX;
       const y = randomY;
       const z = Math.sin(armAngle + spinAngle) * r + randomZ;
       
-      positions[i * 3] = x;
-      positions[i * 3 + 1] = y;
-      positions[i * 3 + 2] = z;
+      // Guardar posiciones iniciales de la galaxia
+      this.initialPositions[i * 3] = x;
+      this.initialPositions[i * 3 + 1] = y;
+      this.initialPositions[i * 3 + 2] = z;
       
-      // Interpolación de Color Cósmico Basada en el Radio
+      // B. Coordenadas de las Dos Columnas Laterales (Estado Objetivo)
+      // Si la partícula está en el lado izquierdo (x < 0) va a la columna izquierda, si no, a la derecha
+      if (x < 0) {
+        this.normalizedTargetX[i] = -1.0 + (Math.random() - 0.5) * 0.25; // Izquierda
+      } else {
+        this.normalizedTargetX[i] = 1.0 + (Math.random() - 0.5) * 0.25; // Derecha
+      }
+      
+      // Distribución vertical en la columna
+      this.targetY[i] = (Math.random() - 0.5) * 14.5;
+      
+      // Distribución en profundidad
+      this.targetZ[i] = (Math.random() - 0.5) * 3.5;
+      
+      // Velocidad individual de rotación kepleriana
+      this.galaxySpeedOffsets[i] = (Math.random() * 0.25 + 0.08) * (1 / (r * 0.5 + 0.4));
+      
+      // C. Interpolación de Colores Cósmicos
       const mixedColor = colorCore.clone();
       const radiusRatio = r / this.galaxyParams.radius;
       
       if (radiusRatio < 0.35) {
-        // Núcleo a Brazo Medio (Cian a Púrpura)
         mixedColor.lerp(colorOuter, radiusRatio * 2.85);
       } else {
-        // Brazo Medio a Extremos (Púrpura a Rosa Brillante)
         mixedColor.lerp(colorOuter, 1.0);
         mixedColor.lerp(colorOutermost, (radiusRatio - 0.35) * 1.54);
       }
@@ -156,18 +180,14 @@ class SolemEngine {
       colors[i * 3] = mixedColor.r;
       colors[i * 3 + 1] = mixedColor.g;
       colors[i * 3 + 2] = mixedColor.b;
-      
-      // Velocidad individual de rotación (Kepleriana: más rápido en el núcleo)
-      speedOffsets[i] = (Math.random() * 0.3 + 0.1) * (1 / (r * 0.6 + 0.5));
     }
     
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(count * 3), 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     
-    // Material de Partículas Luminosas Additive Blending
     const material = new THREE.PointsMaterial({
-      size: 0.115,
+      size: 0.118,
       sizeAttenuation: true,
       depthWrite: false,
       transparent: true,
@@ -178,7 +198,9 @@ class SolemEngine {
     
     this.galaxy = new THREE.Points(geometry, material);
     this.scene.add(this.galaxy);
-    this.galaxySpeedOffsets = speedOffsets;
+    
+    // Forzar actualización inicial
+    this.updateParticlesPhysics(0);
   }
 
   // ======================================================================
@@ -187,8 +209,8 @@ class SolemEngine {
   createCentralCore() {
     this.coreGroup = new THREE.Group();
     
-    // A. Núcleo Interno (Esfera Translúcida Brillante)
-    const innerGeom = new THREE.SphereGeometry(0.9, 64, 64);
+    // A. Núcleo Interno (Esfera Translúcida Pulsante)
+    const innerGeom = new THREE.SphereGeometry(0.85, 64, 64);
     const innerMat = new THREE.MeshStandardMaterial({
       color: 0x00f2fe,
       emissive: 0x7f00ff,
@@ -196,14 +218,13 @@ class SolemEngine {
       roughness: 0.12,
       metalness: 0.15,
       transparent: true,
-      opacity: 0.88,
-      flatShading: false
+      opacity: 0.88
     });
     this.innerSphere = new THREE.Mesh(innerGeom, innerMat);
     this.coreGroup.add(this.innerSphere);
     
-    // B. Escudo Exterior (Icosaedro de Geometría Sagrada)
-    const outerGeom = new THREE.IcosahedronGeometry(1.3, 2);
+    // B. Escudo Exterior (Icosaedro High-Tech Wireframe)
+    const outerGeom = new THREE.IcosahedronGeometry(1.25, 2);
     const outerMat = new THREE.MeshBasicMaterial({
       color: 0x00f2fe,
       wireframe: true,
@@ -214,25 +235,21 @@ class SolemEngine {
     this.outerShell = new THREE.Mesh(outerGeom, outerMat);
     this.coreGroup.add(this.outerShell);
     
-    // Posición por defecto
     this.coreGroup.position.set(0, 0, 0);
     this.scene.add(this.coreGroup);
   }
 
   // ======================================================================
-  // 5. CONFIGURACIÓN DE ILUMINACIÓN DE APOYO
+  // 5. ILUMINACIÓN VOLUMÉTRICA
   // ======================================================================
   setupLights() {
-    // Luz Puntual de Alta Intensidad dentro de la esfera
-    const coreLight = new THREE.PointLight(0x00f2fe, 3.5, 12);
+    const coreLight = new THREE.PointLight(0x00f2fe, 3.8, 14);
     coreLight.position.set(0, 0, 0);
     this.coreGroup.add(coreLight);
     
-    // Luz ambiental suave para matizar
-    const ambientLight = new THREE.AmbientLight(0x070913, 0.5);
+    const ambientLight = new THREE.AmbientLight(0x070913, 0.45);
     this.scene.add(ambientLight);
     
-    // Luces direccionales laterales para realzar la volumetría de la esfera
     const dirLight1 = new THREE.DirectionalLight(0x7f00ff, 1.8);
     dirLight1.position.set(5, 5, 2);
     this.scene.add(dirLight1);
@@ -243,17 +260,26 @@ class SolemEngine {
   }
 
   // ======================================================================
-  // 6. EVENTOS DE INTERACCIÓN (MOUSE Y RESIZE)
+  // 6. ADAPTABILIDAD DE COLUMNAS LATERALES (VIEWPORT ADAPTIVO)
   // ======================================================================
+  updateColumnCoords() {
+    const visibleWidth = 2 * this.baseCameraPos.z * Math.tan((this.camera.fov * Math.PI) / 360);
+    
+    // Colocar las columnas en los extremos del viewport
+    this.columnX = visibleWidth * 0.44;
+    
+    if (window.innerWidth < 768) {
+      // En móviles colocamos las columnas levemente más al borde
+      this.columnX = visibleWidth * 0.40;
+    }
+  }
+
   setupInteraction() {
-    // Parámetros de seguimiento del ratón
     window.addEventListener('mousemove', (e) => {
-      // Rango de -0.5 a 0.5
       this.targetMouse.x = (e.clientX / window.innerWidth) - 0.5;
       this.targetMouse.y = (e.clientY / window.innerHeight) - 0.5;
     });
     
-    // Resize Dinámico con Invalidación de ScrollTrigger
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
@@ -261,7 +287,10 @@ class SolemEngine {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       
-      // Notificar a ScrollTrigger y recrear el timeline para re-calcular offsets
+      // Actualizar ancho de columnas
+      this.updateColumnCoords();
+      
+      // Notificar a ScrollTrigger y timeline
       ScrollTrigger.refresh();
       if (this.journeyTimeline) {
         this.journeyTimeline.invalidate();
@@ -270,12 +299,13 @@ class SolemEngine {
   }
 
   // ======================================================================
-  // 7. TIMELINE MAESTRO Y ORQUESTACIÓN CINEMÁTICA (GSAP + SCROLLTRIGGER)
+  // 7. TIMELINE DE PASILLO Y COLAPSO GALÁCTICO (GSAP + SCROLLTRIGGER)
   // ======================================================================
   initAnimations() {
     gsap.registerPlugin(ScrollTrigger);
     
-    // Desvanecer el canvas principal al entrar a la sección tradicional de Proyectos
+    // A. Control de Opacidad del Canvas Principal
+    // Fadecito sutil detrás de Proyectos y Metodología para legibilidad
     gsap.to(this.canvas, {
       opacity: 0.12,
       scrollTrigger: {
@@ -286,20 +316,43 @@ class SolemEngine {
       }
     });
     
-    // Ocultar y contraer la esfera al ir a secciones tradicionales
-    gsap.to(this.coreGroup.scale, {
-      x: 0.001,
-      y: 0.001,
-      z: 0.001,
+    // ¡RESTAURAR FULGOR DE LA GALAXIA EN EL CONTACTO FINAL!
+    // Al entrar al formulario de contacto, el cosmos de partículas vuelve a brillar al 85%
+    gsap.to(this.canvas, {
+      opacity: 0.85,
       scrollTrigger: {
-        trigger: "#sec-projects",
-        start: "top 95%",
-        end: "top 45%",
+        trigger: "#sec-contact",
+        start: "top 90%",
+        end: "top 30%",
         scrub: true
       }
     });
     
-    // Selección de Slides de Estación
+    // B. COLAPSO DE PARTÍCULAS EN EL FORMULARIO DE CONTACTO
+    // Las columnas colapsan de nuevo a la galaxia espiral unificada
+    gsap.to(this, {
+      explosionProgress: 0.0,
+      scrollTrigger: {
+        trigger: "#sec-contact",
+        start: "top 95%",
+        end: "top 25%",
+        scrub: 1.0 // Inercia fluida
+      }
+    });
+    
+    // C. ESFERA REGRESA AL CENTRO GEOGRÁFICO EN EL FORMULARIO
+    // Detiene su descenso vertical y se encuadra como corazón del formulario
+    gsap.to(this.coreGroup.position, {
+      y: 0.0,
+      scrollTrigger: {
+        trigger: "#sec-contact",
+        start: "top 95%",
+        end: "top 25%",
+        scrub: 1.0
+      }
+    });
+    
+    // Selección de Slides
     const slides = [
       document.getElementById('slide-hero'),
       document.getElementById('slide-webdev'),
@@ -308,93 +361,62 @@ class SolemEngine {
       document.getElementById('slide-training')
     ];
     
-    // Crear el Timeline Maestro Pinned de las 5 estaciones
+    // Configuración inicial de tarjetas frontales
+    gsap.set(slides[0], { autoAlpha: 1, y: 0 });
+    gsap.set(slides.slice(1), { autoAlpha: 0, y: 55 });
+    
+    // TIMELINE MAESTRO PINNED (Estaciones 0 a 4)
     this.journeyTimeline = gsap.timeline({
       scrollTrigger: {
         trigger: ".journey-wrapper",
         start: "top top",
         end: "bottom bottom",
-        scrub: 1.15, // Butter-smooth inercia
+        scrub: 1.15,
         pin: ".scroll-container",
         pinSpacing: false,
         snap: {
-          snapTo: [0.0, 0.25, 0.5, 0.75, 1.0], // Imantación matemática a cada slide (5 slides = 4 tramos de 0.25)
+          snapTo: [0.0, 0.25, 0.5, 0.75, 1.0], // Magnetismo exacto a las 5 estaciones
           duration: { min: 0.45, max: 0.85 },
           delay: 0.08,
           ease: "power2.out"
-        },
-        onUpdate: (self) => {
-          // Detectar la estación activa en base al progreso de scroll
-          const progress = self.progress;
-          let activeIndex = 0;
-          
-          if (progress < 0.125) activeIndex = 0;
-          else if (progress < 0.375) activeIndex = 1;
-          else if (progress < 0.625) activeIndex = 2;
-          else if (progress < 0.875) activeIndex = 3;
-          else activeIndex = 4;
-          
-          // Actualizar menú de navegación activo
-          this.updateActiveNavLink(activeIndex);
         }
       }
     });
     
     // ======================================================================
-    // CORE DE ANIMACIONES CRONOMETRADAS DEL TIMELINE VIAJE
+    // SECUENCIA DE DESPLAZAMIENTO VERTICAL Y APERTURA DE PASILLO
     // ======================================================================
     
-    // Fase inicial (Hero visible)
-    gsap.set(slides[0], { autoAlpha: 1, y: 0 });
-    gsap.set(slides.slice(1), { autoAlpha: 0, y: 50 });
-    
-    // TRAMO 1: Hero (Estación 0) -> Web Dev & IA (Estación 1)
-    // Progreso: 0.0 -> 0.25
+    // Tramo 1: Hero (Estación 0) -> Web Dev & IA (Estación 1 - COLUMNA IZQUIERDA)
+    // Se dispara la explosión de la galaxia y la esfera inicia descenso estrictamente vertical
     this.journeyTimeline
-      .to(slides[0], { autoAlpha: 0, y: -50, duration: 0.4 }, "t1")
-      .to(this.coreGroup.position, { x: 2.3, y: 0.3, z: 0.5, duration: 0.8, ease: "power2.inOut" }, "t1")
-      .to(this.coreGroup.scale, { x: 1.45, y: 1.45, z: 1.45, duration: 0.4, ease: "power1.in" }, "t1")
-      .to(this.coreGroup.scale, { x: 1.15, y: 1.15, z: 1.15, duration: 0.4, ease: "power1.out" }, "t1+=0.4")
-      .to(this.baseCameraPos, { x: -0.3, y: 0, z: 8.0, duration: 0.8, ease: "power2.inOut" }, "t1")
-      .to(this.galaxy.rotation, { y: Math.PI * 0.4, x: 0.4, z: 0.2, duration: 0.8, ease: "power2.inOut" }, "t1")
+      .to(slides[0], { autoAlpha: 0, y: -55, duration: 0.4 }, "t1")
+      .to(this, { explosionProgress: 1.0, duration: 0.5, ease: "power2.out" }, "t1")
+      .to(this.coreGroup.position, { y: -1.2, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t1")
       .to(slides[1], { autoAlpha: 1, y: 0, duration: 0.4 }, "t1+=0.4")
       
-      // TRAMO 2: Web Dev & IA (Estación 1) -> Automatización & Google (Estación 2)
-      // Progreso: 0.25 -> 0.50
-      .to(slides[1], { autoAlpha: 0, y: -50, duration: 0.4 }, "t2")
-      .to(this.coreGroup.position, { x: -2.3, y: -0.2, z: 0.2, duration: 0.8, ease: "power2.inOut" }, "t2")
-      .to(this.coreGroup.scale, { x: 0.75, y: 0.75, z: 0.75, duration: 0.4, ease: "power1.in" }, "t2")
-      .to(this.coreGroup.scale, { x: 1.2, y: 1.2, z: 1.2, duration: 0.4, ease: "power1.out" }, "t2+=0.4")
-      .to(this.baseCameraPos, { x: 0.3, y: 0.1, z: 8.2, duration: 0.8, ease: "power2.inOut" }, "t2")
-      .to(this.galaxy.rotation, { y: Math.PI * 0.95, x: -0.3, z: -0.3, duration: 0.8, ease: "power2.inOut" }, "t2")
+      // Tramo 2: Web Dev (Estación 1 - IZQUIERDA) -> Automatización (Estación 2 - COLUMNA DERECHA)
+      // Esfera desciende más por el pasillo central, explosionProgress permanece en 1.0 (pasillo vacío)
+      .to(slides[1], { autoAlpha: 0, y: -55, duration: 0.4 }, "t2")
+      .to(this.coreGroup.position, { y: -2.4, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t2")
       .to(slides[2], { autoAlpha: 1, y: 0, duration: 0.4 }, "t2+=0.4")
       
-      // TRAMO 3: Automatización (Estación 2) -> Marketing & Tracción (Estación 3)
-      // Progreso: 0.50 -> 0.75
-      .to(slides[2], { autoAlpha: 0, y: -50, duration: 0.4 }, "t3")
-      .to(this.coreGroup.position, { x: 2.3, y: -0.4, z: 0.6, duration: 0.8, ease: "power2.inOut" }, "t3")
-      .to(this.coreGroup.scale, { x: 1.5, y: 1.5, z: 1.5, duration: 0.4, ease: "power1.in" }, "t3")
-      .to(this.coreGroup.scale, { x: 1.1, y: 1.1, z: 1.1, duration: 0.4, ease: "power1.out" }, "t3+=0.4")
-      .to(this.baseCameraPos, { x: -0.4, y: -0.1, z: 7.9, duration: 0.8, ease: "power2.inOut" }, "t3")
-      .to(this.galaxy.rotation, { y: Math.PI * 1.35, x: 0.45, z: 0.15, duration: 0.8, ease: "power2.inOut" }, "t3")
+      // Tramo 3: Automatización (Estación 2 - DERECHA) -> Marketing (Estación 3 - COLUMNA IZQUIERDA)
+      .to(slides[2], { autoAlpha: 0, y: -55, duration: 0.4 }, "t3")
+      .to(this.coreGroup.position, { y: -3.6, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t3")
       .to(slides[3], { autoAlpha: 1, y: 0, duration: 0.4 }, "t3+=0.4")
       
-      // TRAMO 4: Marketing (Estación 3) -> Capacitación & Soporte (Estación 4)
-      // Progreso: 0.75 -> 1.0
-      .to(slides[3], { autoAlpha: 0, y: -50, duration: 0.4 }, "t4")
-      .to(this.coreGroup.position, { x: -2.1, y: 0.1, z: 0.3, duration: 0.8, ease: "power2.inOut" }, "t4")
-      .to(this.coreGroup.scale, { x: 0.9, y: 0.9, z: 0.9, duration: 0.4, ease: "power1.in" }, "t4")
-      .to(this.coreGroup.scale, { x: 1.25, y: 1.25, z: 1.25, duration: 0.4, ease: "power1.out" }, "t4+=0.4")
-      .to(this.baseCameraPos, { x: 0.2, y: 0, z: 8.3, duration: 0.8, ease: "power2.inOut" }, "t4")
-      .to(this.galaxy.rotation, { y: Math.PI * 1.85, x: -0.15, z: -0.1, duration: 0.8, ease: "power2.inOut" }, "t4")
+      // Tramo 4: Marketing (Estación 3 - IZQUIERDA) -> Capacitación (Estación 4 - COLUMNA DERECHA)
+      .to(slides[3], { autoAlpha: 0, y: -55, duration: 0.4 }, "t4")
+      .to(this.coreGroup.position, { y: -4.8, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t4")
       .to(slides[4], { autoAlpha: 1, y: 0, duration: 0.4 }, "t4+=0.4");
       
-    // Enlace de clics de menú y botones de viaje
+    // Enlace de clics de navbar y scrolling
     this.setupNavigation();
   }
 
   // ======================================================================
-  // 8. CONTROLADORES DE NAVEGACIÓN Y CLICS DE ANCLAJE
+  // 8. CONTROLADORES DE DIRECCIONAMIENTO E INTERCEPTACIÓN DE SCROLL
   // ======================================================================
   setupNavigation() {
     const navLinks = document.querySelectorAll('.nav-link, .nav-logo, .btn-journey, .btn-scroll-down');
@@ -407,20 +429,33 @@ class SolemEngine {
         const targetIndex = link.getAttribute('data-index') || link.getAttribute('data-target');
         
         if (targetIndex !== null && targetIndex !== undefined) {
-          // Para las 5 estaciones del Timeline inmersivo
-          // Convertimos el index de estación a coordenadas de scroll absolutas
-          const targetY = parseInt(targetIndex) * window.innerHeight;
-          
-          gsap.to(window, {
-            scrollTo: targetY,
-            duration: 1.2,
-            ease: "power3.out"
-          });
+          const idx = parseInt(targetIndex);
+          if (idx < 5) {
+            // Si es un slide de las estaciones inmersivas (Hero=0 a Capacitación=4)
+            const targetY = idx * window.innerHeight;
+            gsap.to(window, {
+              scrollTo: targetY,
+              duration: 1.2,
+              ease: "power3.out"
+            });
+          } else {
+            // Contacto (index 5)
+            const targetEl = document.querySelector('#sec-contact');
+            if (targetEl) {
+              const rect = targetEl.getBoundingClientRect();
+              const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+              const targetY = rect.top + scrollTop;
+              gsap.to(window, {
+                scrollTo: targetY,
+                duration: 1.4,
+                ease: "power3.out"
+              });
+            }
+          }
         } else {
-          // Para secciones tradicionales inferiores (Proyectos, Metodologia, Contacto)
+          // Secciones tradicionales inferiores (Proyectos o Metodología)
           const targetEl = document.querySelector(targetId);
           if (targetEl) {
-            // Calculamos la posición real sumando la altura del viaje (500vh)
             const rect = targetEl.getBoundingClientRect();
             const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
             const targetY = rect.top + scrollTop;
@@ -433,13 +468,13 @@ class SolemEngine {
           }
         }
         
-        // Cerrar menú móvil si estuviera abierto
+        // Cerrar menú móvil
         document.getElementById('nav-links').classList.remove('open');
         document.getElementById('menu-toggle').classList.remove('open');
       });
     });
     
-    // Resaltar navbar al scrollear
+    // Unificar detección de navegación y scroll
     window.addEventListener('scroll', () => {
       const nav = document.getElementById('main-nav');
       if (window.scrollY > 50) {
@@ -448,8 +483,7 @@ class SolemEngine {
         nav.classList.remove('scrolled');
       }
       
-      // Detección de secciones tradicionales
-      this.detectTraditionalSectionsActive();
+      this.detectActiveNavigationSection();
     });
     
     // Toggle Menú Móvil
@@ -462,7 +496,7 @@ class SolemEngine {
     });
   }
 
-  // Actualizar indicador activo en Navbar
+  // Actualizar indicador activo en Navbar para estaciones inmersivas
   updateActiveNavLink(index) {
     const links = document.querySelectorAll('.nav-link:not(.nav-link-traditional)');
     links.forEach((link, i) => {
@@ -474,84 +508,138 @@ class SolemEngine {
     });
   }
 
-  // Detectar y activar links de secciones tradicionales en navbar
-  detectTraditionalSectionsActive() {
-    const scrollPos = window.scrollY + 200;
-    const traditionalLinks = document.querySelectorAll('.nav-link.nav-link-traditional');
-    const sections = [
-      { id: '#sec-projects', link: traditionalLinks[0] },
-      { id: '#sec-methodology', link: traditionalLinks[1] }
-    ];
+  // Resaltado dinámico milimétrico para tradicionales y sección de contacto
+  detectActiveNavigationSection() {
+    const scrollPos = window.scrollY;
+    const windowHeight = window.innerHeight;
     
-    // Si estamos en el viaje 3D, desactivar los tradicionales
-    if (window.scrollY < window.innerHeight * 4.2) {
-      traditionalLinks.forEach(l => l.classList.remove('active'));
-      return;
-    }
-    
-    sections.forEach(sec => {
-      const el = document.querySelector(sec.id);
-      if (el) {
-        const top = el.offsetTop;
-        const height = el.offsetHeight;
-        if (scrollPos >= top && scrollPos < top + height) {
-          // Desactivar todos los demás
-          document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-          sec.link.classList.add('active');
+    if (scrollPos < windowHeight * 4.5) {
+      // Estamos en la experiencia inmersiva
+      let activeIndex = Math.round(scrollPos / windowHeight);
+      activeIndex = Math.max(0, Math.min(4, activeIndex));
+      
+      this.updateActiveNavLink(activeIndex);
+      
+      // Remover activos de las secciones tradicionales
+      document.querySelectorAll('.nav-link.nav-link-traditional').forEach(l => l.classList.remove('active'));
+      document.querySelector('.nav-cta').classList.remove('active');
+    } else {
+      // Desactivar estaciones inmersivas
+      document.querySelectorAll('.nav-link:not(.nav-link-traditional)').forEach(l => l.classList.remove('active'));
+      
+      const traditionalLinks = document.querySelectorAll('.nav-link.nav-link-traditional');
+      const contactCta = document.querySelector('.nav-cta');
+      
+      const scrollPosWithOffset = scrollPos + windowHeight * 0.4;
+      
+      const sections = [
+        { id: '#sec-projects', link: traditionalLinks[0] },
+        { id: '#sec-methodology', link: traditionalLinks[1] },
+        { id: '#sec-contact', link: contactCta }
+      ];
+      
+      sections.forEach(sec => {
+        const el = document.querySelector(sec.id);
+        if (el) {
+          const top = el.offsetTop;
+          const height = el.offsetHeight;
+          if (scrollPosWithOffset >= top && scrollPosWithOffset < top + height) {
+            traditionalLinks.forEach(l => l.classList.remove('active'));
+            contactCta.classList.remove('active');
+            sec.link.classList.add('active');
+          }
         }
+      });
+      
+      // Caso especial: al final de la página forzar resaltado de contacto
+      if (scrollPos + windowHeight >= document.documentElement.scrollHeight - 50) {
+        traditionalLinks.forEach(l => l.classList.remove('active'));
+        contactCta.classList.add('active');
       }
-    });
+    }
   }
 
   // ======================================================================
-  // 9. BUCLE DE FRAME (RENDER DE RENDIMIENTO A 60 FPS)
+  // 9. DINÁMICA DE PARTÍCULAS EN TIEMPO REAL (UPDATE DE FÍSICA)
+  // ======================================================================
+  updateParticlesPhysics(elapsedTime) {
+    if (!this.galaxy) return;
+    
+    const positions = this.galaxy.geometry.attributes.position.array;
+    const count = this.galaxyParams.count;
+    
+    for (let i = 0; i < count; i++) {
+      const idx = i * 3;
+      
+      const x = this.initialPositions[idx];
+      const y = this.initialPositions[idx + 1];
+      const z = this.initialPositions[idx + 2];
+      
+      // A. Rotación kepleriana fluida de la galaxia
+      // Se ralentiza suavemente cuando explosionProgress se acerca a 1 (apertura del pasillo)
+      const angle = this.galaxySpeedOffsets[i] * elapsedTime * (1.0 - this.explosionProgress);
+      
+      const rx = x * Math.cos(angle) - z * Math.sin(angle);
+      const rz = x * Math.sin(angle) + z * Math.cos(angle);
+      
+      // Bamboleo vertical individual de rotación
+      const ry = y + Math.sin(elapsedTime * this.galaxySpeedOffsets[i] * 2.0) * 0.05 * (1.0 - this.explosionProgress);
+      
+      // B. Coordenadas objetivo en las columnas laterales
+      // El pasillo central (x = 0) queda vacío absoluto al forzar la separación en los extremos
+      const targetSide = this.normalizedTargetX[i] < 0 ? -1 : 1;
+      const tx = targetSide * this.columnX + (this.normalizedTargetX[i] - targetSide) * 1.5;
+      const ty = this.targetY[i];
+      const tz = this.targetZ[i];
+      
+      // C. Interpolación lineal basada en explosionProgress
+      positions[idx] = rx + (tx - rx) * this.explosionProgress;
+      positions[idx + 1] = ry + (ty - ry) * this.explosionProgress;
+      positions[idx + 2] = rz + (tz - rz) * this.explosionProgress;
+    }
+    
+    this.galaxy.geometry.attributes.position.needsUpdate = true;
+  }
+
+  // ======================================================================
+  // 10. BUCLE DE FRAME PRINCIPAL (60 FPS CON INTERPOLACIONES)
   // ======================================================================
   animate() {
     requestAnimationFrame(() => this.animate());
     
     const elapsedTime = this.clock.getElapsedTime();
     
-    // A. Rotación Natural e Inercia de la Galaxia Cósmica
-    // GSAP controla la rotación base del timeline, aquí sumamos rotación constante por tiempo
-    if (this.galaxy) {
-      this.galaxy.rotation.y += 0.0016;
-      
-      // Animación de dispersión o vibración sutil de las partículas
-      const positions = this.galaxy.geometry.attributes.position.array;
-      const count = this.galaxyParams.count;
-      
-      // Solo deformamos un pequeño porcentaje de partículas para mantener alto rendimiento (0 asignaciones de memoria)
-      for (let i = 0; i < count; i += 8) {
-        const index = i * 3;
-        // Pequeño bamboleo matemático senoidal individual
-        positions[index + 1] += Math.sin(elapsedTime * this.galaxySpeedOffsets[i] * 2) * 0.0006;
-      }
-      this.galaxy.geometry.attributes.position.needsUpdate = true;
-    }
+    // A. Actualizar física de las partículas de la Galaxia/Pasillo
+    this.updateParticlesPhysics(elapsedTime);
     
-    // B. Animación Pulsante Orgánica del Núcleo Central
+    // B. Animaciones Rotativas de Mallas del Núcleo Central
     if (this.coreGroup) {
-      // Rotaciones encontradas (Look de alta tecnología sagrada)
-      this.innerSphere.rotation.y += 0.008;
-      this.innerSphere.rotation.x += 0.004;
+      if (this.explosionProgress > 0.01) {
+        // En movimiento o pasillo: la esfera rota, pulsa y viaja
+        this.innerSphere.rotation.y += 0.009;
+        this.innerSphere.rotation.x += 0.005;
+        
+        this.outerShell.rotation.y -= 0.006;
+        this.outerShell.rotation.z += 0.008;
+        
+        // Latido electromagnético en escala
+        const pulseScale = 1.0 + Math.sin(elapsedTime * 3.6) * 0.055;
+        this.innerSphere.scale.set(pulseScale, pulseScale, pulseScale);
+      } else {
+        // Hero o Colapso total: la esfera está perfectamente estática en rotación y escala
+        this.innerSphere.rotation.set(0, 0, 0);
+        this.outerShell.rotation.set(0, 0, 0);
+        this.innerSphere.scale.set(1.0, 1.0, 1.0);
+      }
       
-      this.outerShell.rotation.y -= 0.005;
-      this.outerShell.rotation.z += 0.007;
+      // C. Intercalado de Inercia de Ratón (Paralaje Real de Cámara)
+      this.mouse.x += (this.targetMouse.x * this.parallaxIntensity - this.mouse.x) * 0.075;
+      this.mouse.y += (this.targetMouse.y * this.parallaxIntensity - this.mouse.y) * 0.075;
       
-      // Efecto elástico de pulsación senoidal en escala (Simula latidos de energía pura)
-      const pulseScale = 1.0 + Math.sin(elapsedTime * 3.5) * 0.052;
-      this.innerSphere.scale.set(pulseScale, pulseScale, pulseScale);
-      
-      // C. Intercalado de Inercia de Ratón (Paralaje Real 3D)
-      // Interpolación lineal (Lerp) para fluidez extrema
-      this.mouse.x += (this.targetMouse.x * this.parallaxIntensity - this.mouse.x) * 0.07;
-      this.mouse.y += (this.targetMouse.y * this.parallaxIntensity - this.mouse.y) * 0.07;
-      
-      // Sumar la inercia del mouse a la cámara de forma local
       this.camera.position.x = this.baseCameraPos.x + this.mouse.x;
       this.camera.position.y = this.baseCameraPos.y - this.mouse.y;
       
-      // Enfocar siempre la cámara hacia el núcleo elástico tridimensional
+      // Apuntar la cámara hacia la posición vertical actual del núcleo
       this.camera.lookAt(this.coreGroup.position);
     }
     
@@ -562,13 +650,8 @@ class SolemEngine {
 
 // Inicialización del Motor una vez que el DOM esté completamente cargado
 window.addEventListener('DOMContentLoaded', () => {
-  // GSAP ScrollToPlugin CDN no está incluido por defecto, lo implementamos con JS nativo robusto.
-  // Pero para que gsap.to(window, {scrollTo: ...}) funcione, necesitamos emular el comportamiento o inyectar el plugin.
-  // Para evitar dependencias externas extras y asegurar compatibilidad total de inmediato:
-  // Programamos un Polyfill rápido para que gsap reconozca scrollTo en window usando scrollTo nativo si fuera necesario,
-  // o simplemente inyectamos la redirección nativa si no existe el plugin.
+  // Polyfill del plugin ScrollTo si no está cargado
   if (window.gsap && !window.gsap.plugins.scrollTo) {
-    // Registramos un redireccionamiento manual para animar el scroll de forma nativa e ininterrumpida
     gsap.registerEffect({
       name: "scrollToNative",
       effect: (targets, config) => {
@@ -586,10 +669,8 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     });
     
-    // Sobreescribimos la llamada de scrollTo en el motor para usar el efecto nativo mapeado
     gsap.install(window);
     
-    // Modificamos el método de scroll de GSAP si no está cargado
     const originalTo = gsap.to;
     gsap.to = function(target, vars) {
       if (target === window && vars.scrollTo !== undefined) {
