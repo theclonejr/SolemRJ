@@ -149,19 +149,21 @@ class SolemEngine {
       this.initialPositions[i * 3 + 1] = y;
       this.initialPositions[i * 3 + 2] = z;
       
-      // B. Coordenadas de las Dos Columnas Laterales (Estado Objetivo)
-      // Si la partícula está en el lado izquierdo (x < 0) va a la columna izquierda, si no, a la derecha
+      // B. Coordenadas de las Dos Columnas Laterales (Bandas anchas que se extienden a los bordes)
+      // Si la partícula está en el lado izquierdo (x < 0) va a la columna izquierda, si no, a la derecha.
+      // normalizedTargetX representa el factor multiplicador de columnX.
+      // Debe ir de 1.0 (borde del pasillo) a ~3.2 (borde exterior de la pantalla), garantizando pasillo limpio.
       if (x < 0) {
-        this.normalizedTargetX[i] = -1.0 + (Math.random() - 0.5) * 0.25; // Izquierda
+        this.normalizedTargetX[i] = -1.0 - Math.random() * 2.2;
       } else {
-        this.normalizedTargetX[i] = 1.0 + (Math.random() - 0.5) * 0.25; // Derecha
+        this.normalizedTargetX[i] = 1.0 + Math.random() * 2.2;
       }
       
       // Distribución vertical en la columna
-      this.targetY[i] = (Math.random() - 0.5) * 14.5;
+      this.targetY[i] = (Math.random() - 0.5) * 16.5;
       
       // Distribución en profundidad
-      this.targetZ[i] = (Math.random() - 0.5) * 3.5;
+      this.targetZ[i] = (Math.random() - 0.5) * 4.5;
       
       // Velocidad individual de rotación kepleriana
       this.galaxySpeedOffsets[i] = (Math.random() * 0.25 + 0.08) * (1 / (r * 0.5 + 0.4));
@@ -275,9 +277,28 @@ class SolemEngine {
   }
 
   setupInteraction() {
+    this.mouseWorld = new THREE.Vector3(9999, 9999, 0); // inicializar fuera de pantalla
+    
     window.addEventListener('mousemove', (e) => {
       this.targetMouse.x = (e.clientX / window.innerWidth) - 0.5;
       this.targetMouse.y = (e.clientY / window.innerHeight) - 0.5;
+      
+      // Proyectar el mouse de 2D NDC a coordenadas 3D en el plano Z = 0
+      const ndcX = (e.clientX / window.innerWidth) * 2 - 1;
+      const ndcY = -(e.clientY / window.innerHeight) * 2 + 1;
+      
+      if (this.camera) {
+        const vector = new THREE.Vector3(ndcX, ndcY, 0.5);
+        vector.unproject(this.camera);
+        const dir = vector.sub(this.camera.position).normalize();
+        const distance = -this.camera.position.z / dir.z;
+        this.mouseWorld.copy(this.camera.position).add(dir.multiplyScalar(distance));
+      }
+    });
+    
+    window.addEventListener('mouseleave', () => {
+      // Mover lejos para detener el efecto magnético cuando el mouse sale
+      this.mouseWorld.set(9999, 9999, 0);
     });
     
     window.addEventListener('resize', () => {
@@ -305,67 +326,73 @@ class SolemEngine {
     gsap.registerPlugin(ScrollTrigger);
     
     // A. Control de Opacidad del Canvas Principal
-    // Fadecito sutil detrás de Proyectos y Metodología para legibilidad
+    // Fadecito sutil detrás de las tarjetas para legibilidad
     gsap.to(this.canvas, {
       opacity: 0.12,
       scrollTrigger: {
-        trigger: "#sec-projects",
-        start: "top 95%",
-        end: "top 35%",
+        trigger: ".journey-wrapper",
+        start: "top 20%",
+        end: "bottom 80%",
         scrub: true
       }
     });
     
-    // ¡RESTAURAR FULGOR DE LA GALAXIA EN EL CONTACTO FINAL!
-    // Al entrar al formulario de contacto, el cosmos de partículas vuelve a brillar al 85%
-    gsap.to(this.canvas, {
-      opacity: 0.85,
-      scrollTrigger: {
-        trigger: "#sec-contact",
-        start: "top 90%",
-        end: "top 30%",
-        scrub: true
-      }
-    });
-    
-    // B. COLAPSO DE PARTÍCULAS EN EL FORMULARIO DE CONTACTO
-    // Las columnas colapsan de nuevo a la galaxia espiral unificada
-    gsap.to(this, {
-      explosionProgress: 0.0,
+    // B. TIMELINE SECUENCIAL EXCEPCIONAL PARA EL CIERRE DE CONTACTO
+    // Ajusta milimétricamente el tramo final de la transición de contacto
+    const contactTimeline = gsap.timeline({
       scrollTrigger: {
         trigger: "#sec-contact",
         start: "top 95%",
-        end: "top 25%",
-        scrub: 1.0 // Inercia fluida
-      }
-    });
-    
-    // C. ESFERA REGRESA AL CENTRO GEOGRÁFICO EN EL FORMULARIO
-    // Detiene su descenso vertical y se encuadra como corazón del formulario
-    gsap.to(this.coreGroup.position, {
-      y: 0.0,
-      scrollTrigger: {
-        trigger: "#sec-contact",
-        start: "top 95%",
-        end: "top 25%",
+        end: "top 20%",
         scrub: 1.0
       }
     });
     
-    // Selección de Slides
+    // Paso 1 (0.0 a 0.5 de la transición): colapso de partículas a la galaxia espiral y centrado de la esfera
+    contactTimeline.to(this, {
+      explosionProgress: 0.0,
+      duration: 0.5,
+      ease: "power2.inOut"
+    }, 0);
+    
+    contactTimeline.to(this.coreGroup.position, {
+      y: 0.0,
+      x: 0.0,
+      z: 0.0,
+      duration: 0.5,
+      ease: "power2.inOut"
+    }, 0);
+    
+    contactTimeline.to(this.canvas, {
+      opacity: 0.85,
+      duration: 0.5,
+      ease: "power2.inOut"
+    }, 0);
+    
+    // Paso 2 (0.5 a 1.0 de la transición): emerge suavemente la tarjeta gigante con fade-in y escala
+    contactTimeline.to(".sculpted-glass-heavy", {
+      opacity: 1,
+      scale: 1,
+      duration: 0.5,
+      ease: "back.out(1.5)"
+    }, 0.5);
+    
+    // C. Selección de Slides
     const slides = [
       document.getElementById('slide-hero'),
       document.getElementById('slide-webdev'),
       document.getElementById('slide-automation'),
       document.getElementById('slide-marketing'),
-      document.getElementById('slide-training')
+      document.getElementById('slide-training'),
+      document.getElementById('slide-projects'),
+      document.getElementById('slide-methodology')
     ];
     
     // Configuración inicial de tarjetas frontales
     gsap.set(slides[0], { autoAlpha: 1, y: 0 });
     gsap.set(slides.slice(1), { autoAlpha: 0, y: 55 });
     
-    // TIMELINE MAESTRO PINNED (Estaciones 0 a 4)
+    // TIMELINE MAESTRO PINNED (Estaciones 0 a 6)
     this.journeyTimeline = gsap.timeline({
       scrollTrigger: {
         trigger: ".journey-wrapper",
@@ -373,9 +400,9 @@ class SolemEngine {
         end: "bottom bottom",
         scrub: 1.15,
         pin: ".scroll-container",
-        pinSpacing: false,
+        pinSpacing: true, // pin spacing true para separar limpio del contacto
         snap: {
-          snapTo: [0.0, 0.25, 0.5, 0.75, 1.0], // Magnetismo exacto a las 5 estaciones
+          snapTo: [0, 1/6, 2/6, 3/6, 4/6, 5/6, 1.0], // 7 estaciones (0 a 6)
           duration: { min: 0.45, max: 0.85 },
           delay: 0.08,
           ease: "power2.out"
@@ -383,12 +410,7 @@ class SolemEngine {
       }
     });
     
-    // ======================================================================
-    // SECUENCIA DE DESPLAZAMIENTO VERTICAL Y APERTURA DE PASILLO
-    // ======================================================================
-    
     // Tramo 1: Hero (Estación 0) -> Web Dev & IA (Estación 1 - COLUMNA IZQUIERDA)
-    // Se dispara la explosión de la galaxia y la esfera inicia descenso estrictamente vertical
     this.journeyTimeline
       .to(slides[0], { autoAlpha: 0, y: -55, duration: 0.4 }, "t1")
       .to(this, { explosionProgress: 1.0, duration: 0.5, ease: "power2.out" }, "t1")
@@ -396,7 +418,6 @@ class SolemEngine {
       .to(slides[1], { autoAlpha: 1, y: 0, duration: 0.4 }, "t1+=0.4")
       
       // Tramo 2: Web Dev (Estación 1 - IZQUIERDA) -> Automatización (Estación 2 - COLUMNA DERECHA)
-      // Esfera desciende más por el pasillo central, explosionProgress permanece en 1.0 (pasillo vacío)
       .to(slides[1], { autoAlpha: 0, y: -55, duration: 0.4 }, "t2")
       .to(this.coreGroup.position, { y: -2.4, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t2")
       .to(slides[2], { autoAlpha: 1, y: 0, duration: 0.4 }, "t2+=0.4")
@@ -409,9 +430,18 @@ class SolemEngine {
       // Tramo 4: Marketing (Estación 3 - IZQUIERDA) -> Capacitación (Estación 4 - COLUMNA DERECHA)
       .to(slides[3], { autoAlpha: 0, y: -55, duration: 0.4 }, "t4")
       .to(this.coreGroup.position, { y: -4.8, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t4")
-      .to(slides[4], { autoAlpha: 1, y: 0, duration: 0.4 }, "t4+=0.4");
+      .to(slides[4], { autoAlpha: 1, y: 0, duration: 0.4 }, "t4+=0.4")
       
-    // Enlace de clics de navbar y scrolling
+      // Tramo 5: Capacitación (Estación 4 - DERECHA) -> Proyectos (Estación 5 - COLUMNA IZQUIERDA)
+      .to(slides[4], { autoAlpha: 0, y: -55, duration: 0.4 }, "t5")
+      .to(this.coreGroup.position, { y: -6.0, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t5")
+      .to(slides[5], { autoAlpha: 1, y: 0, duration: 0.4 }, "t5+=0.4")
+      
+      // Tramo 6: Proyectos (Estación 5 - IZQUIERDA) -> Metodología (Estación 6 - COLUMNA DERECHA)
+      .to(slides[5], { autoAlpha: 0, y: -55, duration: 0.4 }, "t6")
+      .to(this.coreGroup.position, { y: -7.2, x: 0.0, z: 0.0, duration: 0.8, ease: "power2.inOut" }, "t6")
+      .to(slides[6], { autoAlpha: 1, y: 0, duration: 0.4 }, "t6+=0.4");
+      
     this.setupNavigation();
   }
 
@@ -419,19 +449,18 @@ class SolemEngine {
   // 8. CONTROLADORES DE DIRECCIONAMIENTO E INTERCEPTACIÓN DE SCROLL
   // ======================================================================
   setupNavigation() {
-    const navLinks = document.querySelectorAll('.nav-link, .nav-logo, .btn-journey, .btn-scroll-down');
+    const navLinks = document.querySelectorAll('.nav-links a, .nav-logo, .btn-journey');
     
     navLinks.forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
         
-        const targetId = link.getAttribute('href');
         const targetIndex = link.getAttribute('data-index') || link.getAttribute('data-target');
         
         if (targetIndex !== null && targetIndex !== undefined) {
           const idx = parseInt(targetIndex);
-          if (idx < 5) {
-            // Si es un slide de las estaciones inmersivas (Hero=0 a Capacitación=4)
+          if (idx < 7) {
+            // Estaciones inmersivas (0 a 6)
             const targetY = idx * window.innerHeight;
             gsap.to(window, {
               scrollTo: targetY,
@@ -439,7 +468,7 @@ class SolemEngine {
               ease: "power3.out"
             });
           } else {
-            // Contacto (index 5)
+            // Contacto (index 7)
             const targetEl = document.querySelector('#sec-contact');
             if (targetEl) {
               const rect = targetEl.getBoundingClientRect();
@@ -453,7 +482,8 @@ class SolemEngine {
             }
           }
         } else {
-          // Secciones tradicionales inferiores (Proyectos o Metodología)
+          // Fallback por ID si no tiene index
+          const targetId = link.getAttribute('href');
           const targetEl = document.querySelector(targetId);
           if (targetEl) {
             const rect = targetEl.getBoundingClientRect();
@@ -496,11 +526,12 @@ class SolemEngine {
     });
   }
 
-  // Actualizar indicador activo en Navbar para estaciones inmersivas
+  // Actualizar indicador activo en Navbar para las estaciones inmersivas
   updateActiveNavLink(index) {
-    const links = document.querySelectorAll('.nav-link:not(.nav-link-traditional)');
-    links.forEach((link, i) => {
-      if (i === index) {
+    const links = document.querySelectorAll('.nav-links a');
+    links.forEach((link) => {
+      const linkIdx = parseInt(link.getAttribute('data-index'));
+      if (linkIdx === index) {
         link.classList.add('active');
       } else {
         link.classList.remove('active');
@@ -513,49 +544,15 @@ class SolemEngine {
     const scrollPos = window.scrollY;
     const windowHeight = window.innerHeight;
     
-    if (scrollPos < windowHeight * 4.5) {
-      // Estamos en la experiencia inmersiva
+    // El wrapper inmersivo ocupa 700vh (0 a 600vh de scroll markers + 100vh de transición a contacto)
+    // El límite para estar en las estaciones es 6.2 * windowHeight
+    if (scrollPos < windowHeight * 6.2) {
       let activeIndex = Math.round(scrollPos / windowHeight);
-      activeIndex = Math.max(0, Math.min(4, activeIndex));
-      
+      activeIndex = Math.max(0, Math.min(6, activeIndex));
       this.updateActiveNavLink(activeIndex);
-      
-      // Remover activos de las secciones tradicionales
-      document.querySelectorAll('.nav-link.nav-link-traditional').forEach(l => l.classList.remove('active'));
-      document.querySelector('.nav-cta').classList.remove('active');
     } else {
-      // Desactivar estaciones inmersivas
-      document.querySelectorAll('.nav-link:not(.nav-link-traditional)').forEach(l => l.classList.remove('active'));
-      
-      const traditionalLinks = document.querySelectorAll('.nav-link.nav-link-traditional');
-      const contactCta = document.querySelector('.nav-cta');
-      
-      const scrollPosWithOffset = scrollPos + windowHeight * 0.4;
-      
-      const sections = [
-        { id: '#sec-projects', link: traditionalLinks[0] },
-        { id: '#sec-methodology', link: traditionalLinks[1] },
-        { id: '#sec-contact', link: contactCta }
-      ];
-      
-      sections.forEach(sec => {
-        const el = document.querySelector(sec.id);
-        if (el) {
-          const top = el.offsetTop;
-          const height = el.offsetHeight;
-          if (scrollPosWithOffset >= top && scrollPosWithOffset < top + height) {
-            traditionalLinks.forEach(l => l.classList.remove('active'));
-            contactCta.classList.remove('active');
-            sec.link.classList.add('active');
-          }
-        }
-      });
-      
-      // Caso especial: al final de la página forzar resaltado de contacto
-      if (scrollPos + windowHeight >= document.documentElement.scrollHeight - 50) {
-        traditionalLinks.forEach(l => l.classList.remove('active'));
-        contactCta.classList.add('active');
-      }
+      // Estamos en la sección de contacto
+      this.updateActiveNavLink(7);
     }
   }
 
@@ -587,15 +584,52 @@ class SolemEngine {
       
       // B. Coordenadas objetivo en las columnas laterales
       // El pasillo central (x = 0) queda vacío absoluto al forzar la separación en los extremos
-      const targetSide = this.normalizedTargetX[i] < 0 ? -1 : 1;
-      const tx = targetSide * this.columnX + (this.normalizedTargetX[i] - targetSide) * 1.5;
-      const ty = this.targetY[i];
-      const tz = this.targetZ[i];
+      let tx = this.normalizedTargetX[i] * this.columnX;
+      let ty = this.targetY[i];
+      let tz = this.targetZ[i];
       
-      // C. Interpolación lineal basada en explosionProgress
-      positions[idx] = rx + (tx - rx) * this.explosionProgress;
-      positions[idx + 1] = ry + (ty - ry) * this.explosionProgress;
-      positions[idx + 2] = rz + (tz - rz) * this.explosionProgress;
+      // C. Añadir movimiento senoidal dinámico (oleaje/respiración) de las columnas
+      if (this.explosionProgress > 0.01) {
+        // Ondulación horizontal basada en la altura y el tiempo
+        tx += Math.sin(elapsedTime * 1.2 + ty * 0.35) * 0.4 * this.explosionProgress * (Math.abs(this.normalizedTargetX[i]) * 0.4);
+        // Oscilación vertical suave
+        ty += Math.cos(elapsedTime * 0.8 + tx * 0.25) * 0.25 * this.explosionProgress;
+      }
+      
+      // D. Interpolación lineal basada en explosionProgress
+      let interpX = rx + (tx - rx) * this.explosionProgress;
+      let interpY = ry + (ty - ry) * this.explosionProgress;
+      let interpZ = rz + (tz - rz) * this.explosionProgress;
+      
+      // E. Interacción Magnética con el Mouse (Hover local)
+      if (this.mouseWorld && this.explosionProgress > 0.05) {
+        const dx = interpX - this.mouseWorld.x;
+        const dy = interpY - this.mouseWorld.y;
+        const distSq = dx * dx + dy * dy;
+        const hoverRadius = 2.4;
+        const hoverRadiusSq = hoverRadius * hoverRadius;
+        
+        if (distSq < hoverRadiusSq) {
+          const dist = Math.sqrt(distSq);
+          if (dist > 0.001) {
+            // Fuerza inversamente proporcional a la distancia
+            const force = (hoverRadius - dist) / hoverRadius; 
+            const pushIntensity = 1.0 * force * this.explosionProgress;
+            
+            interpX += (dx / dist) * pushIntensity;
+            interpY += (dy / dist) * pushIntensity;
+            
+            // Añadir una vibración magnética sutil
+            const vibration = (Math.sin(elapsedTime * 28.0 + i) * 0.08) * force * this.explosionProgress;
+            interpX += vibration;
+            interpY += vibration;
+          }
+        }
+      }
+      
+      positions[idx] = interpX;
+      positions[idx + 1] = interpY;
+      positions[idx + 2] = interpZ;
     }
     
     this.galaxy.geometry.attributes.position.needsUpdate = true;

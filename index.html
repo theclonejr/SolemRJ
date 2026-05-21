@@ -35,9 +35,9 @@
         <a href="#sec-automation" class="nav-link" data-index="2">Automatización</a>
         <a href="#sec-marketing" class="nav-link" data-index="3">Marketing</a>
         <a href="#sec-training" class="nav-link" data-index="4">Capacitación</a>
-        <a href="#sec-projects" class="nav-link nav-link-traditional">Proyectos</a>
-        <a href="#sec-methodology" class="nav-link nav-link-traditional">Metodología</a>
-        <a href="#sec-contact" class="nav-cta" data-index="5">Contacto</a>
+        <a href="#sec-projects" class="nav-link" data-index="5">Proyectos</a>
+        <a href="#sec-methodology" class="nav-link" data-index="6">Metodología</a>
+        <a href="#sec-contact" class="nav-cta" data-index="7">Contacto</a>
       </div>
     </div>
   </nav>
@@ -50,21 +50,23 @@
     <div id="sec-automation" class="scroll-marker" style="top: 200vh;"></div>
     <div id="sec-marketing" class="scroll-marker" style="top: 300vh;"></div>
     <div id="sec-training" class="scroll-marker" style="top: 400vh;"></div>
+    <div id="sec-projects" class="scroll-marker" style="top: 500vh;"></div>
+    <div id="sec-methodology" class="scroll-marker" style="top: 600vh;"></div>
 
     <div class="scroll-container">
       <div class="immersive-content-overlay">
         
-        <!-- ESTACIÓN 0: HERO (100% centrado, Galaxia Unificada) -->
+        <!-- ESTACIÓN 0: HERO (100% centrado, Galaxia Unificada, Orgánico Sin Caja) -->
         <section class="station-slide" id="slide-hero">
-          <div class="scroll-card sculpted-glass center-card">
+          <div class="hero-floating-content">
             <span class="station-badge">Ecosistema Tecnológico</span>
-            <h1 class="card-title text-gradient">Más que código,<br>Transformación.</h1>
-            <p class="card-text">
+            <h1 class="hero-title text-gradient">Más que código,<br>Transformación.</h1>
+            <p class="hero-text">
               No somos una agencia tradicional. Somos tus aliados tecnológicos de confianza. Diseñamos, implementamos y capacitamos a tu equipo para maximizar la rentabilidad de tu negocio.
             </p>
-            <div class="card-actions justify-center">
-              <a href="#sec-webdev" class="btn btn-primary btn-journey" data-target="1">Explorar Ecosistema</a>
-              <a href="#sec-contact" class="btn btn-secondary btn-journey" data-target="5">Iniciar Proyecto</a>
+            <div class="hero-actions">
+              <a href="#sec-webdev" class="btn btn-hero-primary btn-journey" data-target="1">Explorar Ecosistema</a>
+              <a href="#sec-contact" class="btn btn-hero-secondary btn-journey" data-target="7">Iniciar Proyecto</a>
             </div>
           </div>
         </section>
@@ -176,7 +178,67 @@
               </li>
             </ul>
             <div class="card-actions">
-              <a href="#sec-projects" class="btn btn-primary btn-scroll-down">Ver Casos de Estudio</a>
+              <a href="#sec-projects" class="btn btn-primary btn-journey" data-target="5">Ver Proyectos</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- ESTACIÓN 5: CASOS DE ÉXITO (Columna Izquierda, Pasillo Despejado) -->
+        <section class="station-slide" id="slide-projects">
+          <div class="scroll-card sculpted-glass left-card wide-card">
+            <span class="station-badge">Estación 05 // Impacto</span>
+            <h2 class="card-title text-gradient">Casos de Éxito</h2>
+            <p class="card-text">
+              Desarrollamos infraestructura digital calibrada con retornos de inversión transparentes e inmediatos.
+            </p>
+            <ul class="card-bullets">
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span><strong>E-Commerce Cognitivo:</strong> Aumento del 34% en conversión.</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span><strong>ERP Google Ecosystem:</strong> Automatización de stock (150h/mes ahorradas).</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span><strong>Embudos de Tracción:</strong> Producción audiovisual (+2.5M visualizaciones).</span>
+              </li>
+            </ul>
+            <div class="card-actions">
+              <a href="#sec-methodology" class="btn btn-primary btn-journey" data-target="6">Ver Metodología</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- ESTACIÓN 6: METODOLOGÍA (Columna Derecha, Pasillo Despejado) -->
+        <section class="station-slide" id="slide-methodology">
+          <div class="scroll-card sculpted-glass right-card wide-card">
+            <span class="station-badge">Estación 06 // Ingeniería</span>
+            <h2 class="card-title text-gradient">Método SolemRJ</h2>
+            <p class="card-text">
+              Nuestra metodología modular garantiza total transparencia y acompañamiento durante todo el proceso de transformación.
+            </p>
+            <ul class="card-bullets">
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span><strong>01. Diagnóstico:</strong> Análisis operativo y detección de fugas de ROI.</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span><strong>02. Arquitectura:</strong> Diseño de software a la medida exacta del negocio.</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span><strong>03. Acompañamiento:</strong> Capacitación in-house y manuales interactivos.</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span><strong>04. Auditoría:</strong> Medición en tiempo real del impacto financiero.</span>
+              </li>
+            </ul>
+            <div class="card-actions">
+              <a href="#sec-contact" class="btn btn-primary btn-journey" data-target="7">Iniciar Transformación</a>
             </div>
           </div>
         </section>
@@ -184,97 +246,6 @@
       </div>
     </div>
   </div>
-
-  <!-- SECCIONES TRADICIONALES DE TEXTO (Scroll Natural) -->
-  
-  <!-- CASOS DE ESTUDIO (Grid Premium) -->
-  <section id="sec-projects" class="traditional-section">
-    <div class="section-container">
-      <div class="section-header">
-        <span class="section-subtitle">Impacto Medible</span>
-        <h2 class="section-title">Casos de Éxito</h2>
-        <div class="section-divider"></div>
-      </div>
-      
-      <div class="projects-grid">
-        <div class="project-card sculpted-glass">
-          <div class="project-img-placeholder" style="background: linear-gradient(135deg, #7f00ff, #00f2fe);">
-            <div class="project-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            </div>
-          </div>
-          <div class="project-info">
-            <span class="project-tag">Web & IA</span>
-            <h3>E-Commerce Cognitivo Inteligente</h3>
-            <p>Plataforma comercial equipada con modelos predictivos de recomendación y agentes de atención conversacional, aumentando conversiones en un 34%.</p>
-          </div>
-        </div>
-
-        <div class="project-card sculpted-glass">
-          <div class="project-img-placeholder" style="background: linear-gradient(135deg, #00f2fe, #4facfe);">
-            <div class="project-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-            </div>
-          </div>
-          <div class="project-info">
-            <span class="project-tag">Google Ecosystem</span>
-            <h3>ERP Automatizado Sheets & CRM</h3>
-            <p>Sincronización masiva de inventarios y reportes automatizados mediante scripts que conectaron APIs propietarias al ecosistema de Google.</p>
-          </div>
-        </div>
-
-        <div class="project-card sculpted-glass">
-          <div class="project-img-placeholder" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
-            <div class="project-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-            </div>
-          </div>
-          <div class="project-info">
-            <span class="project-tag">Marketing & Tracción</span>
-            <h3>Embudos de Retención Audiovisual</h3>
-            <p>Estrategia y producción in-house de video micro-contenido de alto impacto que generó 2.5 millones de vistas y +15k clientes potenciales.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- METODOLOGÍA MODULAR -->
-  <section id="sec-methodology" class="traditional-section">
-    <div class="section-container">
-      <div class="section-header">
-        <span class="section-subtitle">El Método SolemRJ</span>
-        <h2 class="section-title">Ingeniería de Crecimiento</h2>
-        <div class="section-divider"></div>
-      </div>
-      
-      <div class="methodology-steps">
-        <div class="methodology-step sculpted-glass">
-          <div class="step-num">01</div>
-          <h3>Diagnóstico de Procesos</h3>
-          <p>Mapeamos detalladamente la operación interna de tu negocio para identificar fugas de rentabilidad y tareas operativas automatizables.</p>
-        </div>
-
-        <div class="methodology-step sculpted-glass">
-          <div class="step-num">02</div>
-          <h3>Diseño de Arquitectura</h3>
-          <p>Estructuramos las herramientas de software, integraciones cognitivas y flujos automatizados con bases técnicas ultraligeras y seguras.</p>
-        </div>
-
-        <div class="methodology-step sculpted-glass">
-          <div class="step-num">03</div>
-          <h3>Capacitación Dinámica</h3>
-          <p>Garantizamos que tu equipo domine el ecosistema desarrollado. Entregamos manuales paso a paso y brindamos sesiones prácticas en vivo.</p>
-        </div>
-
-        <div class="methodology-step sculpted-glass">
-          <div class="step-num">04</div>
-          <h3>Medición y Optimización</h3>
-          <p>Audita cada hora de trabajo operativa ahorrada y el rendimiento de las campañas de marketing para maximizar de forma continua tu ROI.</p>
-        </div>
-      </div>
-    </div>
-  </section>
 
   <!-- COLAPSO GALÁCTICO FINAL Y FORMULARIO DE CONTACTO -->
   <section id="sec-contact" class="contact-section">
