@@ -630,6 +630,11 @@ class SolemEngine {
         this.innerSphere.rotation.set(0, 0, 0);
         this.outerShell.rotation.set(0, 0, 0);
         this.innerSphere.scale.set(1.0, 1.0, 1.0);
+        
+        // Garantizar centrado perfecto absoluto en el Hero
+        if (window.scrollY === 0) {
+          this.coreGroup.position.set(0, 0, 0);
+        }
       }
       
       // C. Intercalado de Inercia de Ratón (Paralaje Real de Cámara)
