@@ -1,773 +1,607 @@
-gsap.registerPlugin(ScrollTrigger);
+/* ======================================================================
+   SOLEMENGINE - MOTOR INTERACTIVO COLECTIVO DE SOLEMRJ
+   ====================================================================== */
 
-class Immersive3DSceneApp {
-    constructor() {
-        // DOM elements
-        this.building3D = document.getElementById('building-3d');
-        this.office3D = document.getElementById('office-3d');
-        this.cards = document.querySelectorAll('.scroll-card');
+class SolemEngine {
+  constructor() {
+    // 1. Inicialización de Contenedores y Variables
+    this.canvas = document.getElementById('webgl-scene');
+    this.scene = null;
+    this.camera = null;
+    this.renderer = null;
+    
+    // Objetos 3D Principales
+    this.galaxy = null;
+    this.coreGroup = null;
+    this.innerSphere = null;
+    this.outerShell = null;
+    
+    // Parámetros de la Galaxia Cósmica
+    this.galaxyParams = {
+      count: 28000,
+      radius: 12,
+      arms: 3,
+      spin: 1.15,
+      coreColor: '#00f2fe',
+      outerColor: '#7f00ff',
+      outermostColor: '#ff1493'
+    };
+    
+    // Posición base de la cámara (GSAP animará esto)
+    this.baseCameraPos = { x: 0, y: 0, z: 8.5 };
+    
+    // Datos de interacción con el Mouse (Paralaje)
+    this.mouse = { x: 0, y: 0 };
+    this.targetMouse = { x: 0, y: 0 };
+    this.parallaxIntensity = 1.6;
+    
+    // Control de tiempo para animaciones
+    this.clock = new THREE.Clock();
+    
+    // Inicialización del Motor
+    this.initThree();
+    this.createGalaxy();
+    this.createCentralCore();
+    this.setupLights();
+    this.setupInteraction();
+    
+    // Inicialización de Animaciones Frontales (GSAP)
+    this.initAnimations();
+    
+    // Arrancar el bucle de renderizado
+    this.animate();
+  }
 
-        if (!this.building3D && !this.office3D) return;
-
-        // State
-        this.targetMouse = { x: 0, y: 0 };
-        this.currentMouse = { x: 0, y: 0 };
-        this.isMobile = window.innerWidth < 968;
-        this.reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-        if (!this.reducedMotion) {
-            this.init();
-        } else {
-            // Remove preloader immediately if reduced motion
-            const preloader = document.getElementById('preloader');
-            if (preloader) preloader.remove();
-            document.body.classList.remove('lock-interaction');
-            
-            // Set static visible states
-            gsap.set(this.building3D, { opacity: 0, zIndex: 1 });
-            gsap.set(this.office3D, { opacity: 1, zIndex: 2 });
-            gsap.set(this.cards, { opacity: 1, y: 0, position: "relative", pointerEvents: "auto" });
-            gsap.set(".immersive-content-overlay", { position: "relative", display: "flex", flexDirection: "column", padding: "2rem", height: "auto" });
-            gsap.set(".scroll-container", { height: "auto" });
-            gsap.set(".scene-wrapper", { position: "relative", height: "auto", overflow: "visible" });
-        }
-    }
-
-    init() {
-        this.resize();
-        this.addEventListeners();
-        this.setupScrollTrigger();
-
-        // Force texture loading on #office-3d load
-        if (this.office3D) {
-            this.office3D.addEventListener('load', () => {
-                const materials = this.office3D.model?.materials;
-                if (materials && materials.length > 0) {
-                    this.office3D.createTexture('assets/3d-models/textures/oficina-laboratorio/Texture_1024.png')
-                        .then((texture) => {
-                            materials.forEach(material => {
-                                if (material.pbrMetallicRoughness && material.pbrMetallicRoughness.baseColorTexture) {
-                                    material.pbrMetallicRoughness.baseColorTexture.setTexture(texture);
-                                }
-                            });
-                        })
-                        .catch(err => console.error("Error setting texture programmatically:", err));
-                }
-            });
-        }
-
-        // Start render loop for mouse tracking
-        this.animate();
-
-        // Premium Preloader sequence
-        const preloader = document.getElementById('preloader');
-        if (preloader) {
-            gsap.to(preloader, {
-                opacity: 0,
-                duration: 1.0,
-                delay: 1.2,
-                ease: "power2.inOut",
-                onComplete: () => {
-                    preloader.remove();
-                    document.body.classList.remove('lock-interaction');
-                }
-            });
-        } else {
-            document.body.classList.remove('lock-interaction');
-        }
-    }
-
-    resize() {
-        this.isMobile = window.innerWidth < 968;
-    }
-
-    setupScrollTrigger() {
-        let mm = gsap.matchMedia();
-
-        // Desktop Setup
-        mm.add("(min-width: 968px)", () => {
-            // Initial setup for scene elements on desktop
-            gsap.set("#building-3d", { opacity: 1, zIndex: 2 });
-            gsap.set("#office-3d", { opacity: 0, zIndex: 1 });
-            
-            // Hide all cards except Hero card initially on desktop
-            gsap.set(".scroll-card", { opacity: 0, x: "-50px", position: "absolute", pointerEvents: "none" });
-            gsap.set("#card-hero", { opacity: 1, x: 0, pointerEvents: "auto" });
-
-            this.buildingProxy = { theta: 45, phi: 75, radius: 10, tx: 0, ty: 2.5, tz: 0 };
-            this.officeProxy = { theta: 0, phi: 60, radius: 15, tx: 0, ty: -1.5, tz: 0 };
-
-            // Master Timeline driven by scroll progress with single pin on .scene-wrapper
-            this.timeline = gsap.timeline({
-                scrollTrigger: {
-                    trigger: ".scroll-container",
-                    pin: ".scene-wrapper",
-                    start: "top top",
-                    end: "bottom bottom",
-                    scrub: 1.2,
-                    invalidateOnRefresh: true,
-                    snap: {
-                        snapTo: [0, 0.22, 0.42, 0.62, 0.82, 1.0],
-                        duration: { min: 0.2, max: 0.6 },
-                        ease: "power1.inOut"
-                    }
-                }
-            });
-
-            // Add labels at the exact timestamps
-            this.timeline.addLabel("hero", 0);
-            this.timeline.addLabel("webdev", 5.2);
-            this.timeline.addLabel("automation", 9.9);
-            this.timeline.addLabel("marketing", 14.6);
-            this.timeline.addLabel("training", 19.3);
-
-            // --- FASE 1: DESPACHO DEL HERO CARD Y ACCIÓN DEL EDIFICIO ---
-            this.timeline
-                .to("#card-hero", { x: "-150%", opacity: 0, pointerEvents: "none", duration: 0.8, ease: "power2.in" })
-                .to(this.buildingProxy, {
-                    theta: 180,
-                    phi: 45,
-                    radius: 4,
-                    duration: 2.5,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.building3D) {
-                            this.building3D.setAttribute('camera-orbit', `${this.buildingProxy.theta}deg ${this.buildingProxy.phi}deg ${this.buildingProxy.radius}m`);
-                            this.building3D.setAttribute('camera-target', `${this.buildingProxy.tx}m ${this.buildingProxy.ty}m ${this.buildingProxy.tz}m`);
-                        }
-                    }
-                }, "<")
-                .to("#building-3d", { opacity: 0, duration: 1.2, ease: "power2.inOut" }, "<+1.0")
-                .set("#building-3d", { zIndex: 1 })
-                .set("#office-3d", { zIndex: 2 })
-                .to("#office-3d", { opacity: 1, duration: 1, ease: "power2.inOut" }, "<+0.2")
-
-            // --- FASE 2: ENTRADA AL LABORATORIO Y APARICIÓN DE ESTACIÓN 01 (Web Dev & AI) ---
-            this.timeline
-                .to(this.officeProxy, {
-                    theta: -30,
-                    phi: 65,
-                    radius: 9,
-                    tx: -1,
-                    ty: -0.5,
-                    tz: 0,
-                    duration: 2,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.office3D) {
-                            this.office3D.setAttribute('camera-orbit', `${this.officeProxy.theta}deg ${this.officeProxy.phi}deg ${this.officeProxy.radius}m`);
-                            this.office3D.setAttribute('camera-target', `${this.officeProxy.tx}m ${this.officeProxy.ty}m ${this.officeProxy.tz}m`);
-                        }
-                    }
-                })
-                .to("#card-webdev", { opacity: 1, x: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
-                .to({}, { duration: 1.5 }) // delay
-                .to("#card-webdev", { opacity: 0, x: "50%", pointerEvents: "none", duration: 1.2, ease: "power2.in" })
-
-            // --- FASE 3: TRANSICIÓN A ESTACIÓN 02 (Google & Automations) ---
-            this.timeline
-                .to(this.officeProxy, {
-                    theta: 35,
-                    phi: 55,
-                    radius: 8,
-                    tx: 1,
-                    ty: -1.0,
-                    tz: 0.5,
-                    duration: 2,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.office3D) {
-                            this.office3D.setAttribute('camera-orbit', `${this.officeProxy.theta}deg ${this.officeProxy.phi}deg ${this.officeProxy.radius}m`);
-                            this.office3D.setAttribute('camera-target', `${this.officeProxy.tx}m ${this.officeProxy.ty}m ${this.officeProxy.tz}m`);
-                        }
-                    }
-                })
-                .to("#card-automation", { opacity: 1, x: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
-                .to({}, { duration: 1.5 }) // delay
-                .to("#card-automation", { opacity: 0, x: "50%", pointerEvents: "none", duration: 1.2, ease: "power2.in" })
-
-            // --- FASE 4: TRANSICIÓN A ESTACIÓN 03 (Marketing & Content) ---
-            this.timeline
-                .to(this.officeProxy, {
-                    theta: -15,
-                    phi: 70,
-                    radius: 6,
-                    tx: 0.5,
-                    ty: -0.5,
-                    tz: 1,
-                    duration: 2,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.office3D) {
-                            this.office3D.setAttribute('camera-orbit', `${this.officeProxy.theta}deg ${this.officeProxy.phi}deg ${this.officeProxy.radius}m`);
-                            this.office3D.setAttribute('camera-target', `${this.officeProxy.tx}m ${this.officeProxy.ty}m ${this.officeProxy.tz}m`);
-                        }
-                    }
-                })
-                .to("#card-marketing", { opacity: 1, x: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
-                .to({}, { duration: 1.5 }) // delay
-                .to("#card-marketing", { opacity: 0, x: "50%", pointerEvents: "none", duration: 1.2, ease: "power2.in" })
-
-            // --- FASE 5: ENCUADRE FINAL ESTACIÓN 04 (Capacitación & Boardroom) Y CIERRE ---
-            this.timeline
-                .to(this.officeProxy, {
-                    theta: 45,
-                    phi: 60,
-                    radius: 6,
-                    tx: -0.5,
-                    ty: -0.8,
-                    tz: -0.5,
-                    duration: 2,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.office3D) {
-                            this.office3D.setAttribute('camera-orbit', `${this.officeProxy.theta}deg ${this.officeProxy.phi}deg ${this.officeProxy.radius}m`);
-                            this.office3D.setAttribute('camera-target', `${this.officeProxy.tx}m ${this.officeProxy.ty}m ${this.officeProxy.tz}m`);
-                        }
-                    }
-                })
-                .to("#card-training", { opacity: 1, x: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
-                .to({}, { duration: 1.8 }) // delay
-                .to("#card-training", { opacity: 0, y: "-50px", pointerEvents: "none", duration: 0.8, ease: "power2.in" })
-                .to(this.officeProxy, {
-                    theta: 0,
-                    phi: 80,
-                    radius: 20,
-                    tx: 0,
-                    ty: -1.5,
-                    tz: 0,
-                    duration: 2.5,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.office3D) {
-                            this.office3D.setAttribute('camera-orbit', `${this.officeProxy.theta}deg ${this.officeProxy.phi}deg ${this.officeProxy.radius}m`);
-                            this.office3D.setAttribute('camera-target', `${this.officeProxy.tx}m ${this.officeProxy.ty}m ${this.officeProxy.tz}m`);
-                        }
-                    }
-                }, "<")
-                .to("#office-3d", { opacity: 0, duration: 1.5, ease: "power2.inOut" }, "<+0.5")
-                .to(".scene-wrapper", { opacity: 0, duration: 0.8, ease: "power2.inOut" }, "<+0.5")
-                .set(".scene-wrapper", { display: "none" });
-        });
-
-        // Mobile Setup
-        mm.add("(max-width: 967.98px)", () => {
-            // Initial setup for scene elements on mobile
-            gsap.set("#building-3d", { opacity: 0.8, zIndex: 2 });
-            gsap.set("#office-3d", { opacity: 0, zIndex: 1 });
-            
-            // Hide all cards except Hero card initially on mobile
-            gsap.set(".scroll-card", { opacity: 0, pointerEvents: "none" });
-            gsap.set("#card-hero", { opacity: 1, pointerEvents: "auto", left: "50%", xPercent: -50, top: "50%", yPercent: -50, x: 0, y: 0 });
-            gsap.set([ "#card-webdev", "#card-automation", "#card-marketing", "#card-training" ], {
-                left: "7.5vw",
-                top: "50%",
-                yPercent: -50,
-                x: 0,
-                y: 30
-            });
-
-            this.buildingProxyMobile = { theta: 45, phi: 75, radius: 14, tx: 0, ty: 2.5, tz: 0 };
-            this.officeProxyMobile = { theta: 0, phi: 60, radius: 22, tx: 0, ty: -1.5, tz: 0 };
-
-            // Master Timeline driven by scroll progress with single pin on .scene-wrapper
-            this.timeline = gsap.timeline({
-                scrollTrigger: {
-                    trigger: ".scroll-container",
-                    pin: ".scene-wrapper",
-                    start: "top top",
-                    end: "bottom bottom",
-                    scrub: 1.2,
-                    invalidateOnRefresh: true,
-                    snap: {
-                        snapTo: [0, 0.22, 0.42, 0.62, 0.82, 1.0],
-                        duration: { min: 0.2, max: 0.6 },
-                        ease: "power1.inOut"
-                    }
-                }
-            });
-
-            // Add labels at the exact timestamps
-            this.timeline.addLabel("hero", 0);
-            this.timeline.addLabel("webdev", 5.2);
-            this.timeline.addLabel("automation", 9.9);
-            this.timeline.addLabel("marketing", 14.6);
-            this.timeline.addLabel("training", 19.3);
-
-            // --- FASE 1: DESPACHO DEL HERO CARD Y ACCIÓN DEL EDIFICIO ---
-            this.timeline
-                .to("#card-hero", { y: -30, opacity: 0, pointerEvents: "none", duration: 0.8, ease: "power2.in" })
-                .to(this.buildingProxyMobile, {
-                    theta: 180,
-                    phi: 45,
-                    radius: 8,
-                    duration: 2.5,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.building3D) {
-                            this.building3D.setAttribute('camera-orbit', `${this.buildingProxyMobile.theta}deg ${this.buildingProxyMobile.phi}deg ${this.buildingProxyMobile.radius}m`);
-                            this.building3D.setAttribute('camera-target', `${this.buildingProxyMobile.tx}m ${this.buildingProxyMobile.ty}m ${this.buildingProxyMobile.tz}m`);
-                        }
-                    }
-                }, "<")
-                .to("#building-3d", { opacity: 0, duration: 1.2, ease: "power2.inOut" }, "<+1.0")
-                .set("#building-3d", { zIndex: 1 })
-                .set("#office-3d", { zIndex: 2 })
-                .to("#office-3d", { opacity: 0.3, duration: 1, ease: "power2.inOut" }, "<+0.2")
-
-            // --- FASE 2: ENTRADA AL LABORATORIO Y APARICIÓN DE ESTACIÓN 01 (Web Dev & AI) ---
-            this.timeline
-                .to(this.officeProxyMobile, {
-                    theta: -30,
-                    phi: 65,
-                    radius: 15,
-                    tx: -1,
-                    ty: -0.5,
-                    tz: 0,
-                    duration: 2,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.office3D) {
-                            this.office3D.setAttribute('camera-orbit', `${this.officeProxyMobile.theta}deg ${this.officeProxyMobile.phi}deg ${this.officeProxyMobile.radius}m`);
-                            this.office3D.setAttribute('camera-target', `${this.officeProxyMobile.tx}m ${this.officeProxyMobile.ty}m ${this.officeProxyMobile.tz}m`);
-                        }
-                    }
-                })
-                .to("#card-webdev", { opacity: 1, y: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
-                .to({}, { duration: 1.5 }) // delay
-                .to("#card-webdev", { opacity: 0, y: -30, pointerEvents: "none", duration: 1.2, ease: "power2.in" })
-
-            // --- FASE 3: TRANSICIÓN A ESTACIÓN 02 (Google & Automations) ---
-            this.timeline
-                .to(this.officeProxyMobile, {
-                    theta: 35,
-                    phi: 55,
-                    radius: 14,
-                    tx: 1,
-                    ty: -1.0,
-                    tz: 0.5,
-                    duration: 2,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.office3D) {
-                            this.office3D.setAttribute('camera-orbit', `${this.officeProxyMobile.theta}deg ${this.officeProxyMobile.phi}deg ${this.officeProxyMobile.radius}m`);
-                            this.office3D.setAttribute('camera-target', `${this.officeProxyMobile.tx}m ${this.officeProxyMobile.ty}m ${this.officeProxyMobile.tz}m`);
-                        }
-                    }
-                })
-                .to("#card-automation", { opacity: 1, y: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
-                .to({}, { duration: 1.5 }) // delay
-                .to("#card-automation", { opacity: 0, y: -30, pointerEvents: "none", duration: 1.2, ease: "power2.in" })
-
-            // --- FASE 4: TRANSICIÓN A ESTACIÓN 03 (Marketing & Content) ---
-            this.timeline
-                .to(this.officeProxyMobile, {
-                    theta: -15,
-                    phi: 70,
-                    radius: 11,
-                    tx: 0.5,
-                    ty: -0.5,
-                    tz: 1,
-                    duration: 2,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.office3D) {
-                            this.office3D.setAttribute('camera-orbit', `${this.officeProxyMobile.theta}deg ${this.officeProxyMobile.phi}deg ${this.officeProxyMobile.radius}m`);
-                            this.office3D.setAttribute('camera-target', `${this.officeProxyMobile.tx}m ${this.officeProxyMobile.ty}m ${this.officeProxyMobile.tz}m`);
-                        }
-                    }
-                })
-                .to("#card-marketing", { opacity: 1, y: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
-                .to({}, { duration: 1.5 }) // delay
-                .to("#card-marketing", { opacity: 0, y: -30, pointerEvents: "none", duration: 1.2, ease: "power2.in" })
-
-            // --- FASE 5: ENCUADRE FINAL ESTACIÓN 04 (Capacitación & Boardroom) Y CIERRE ---
-            this.timeline
-                .to(this.officeProxyMobile, {
-                    theta: 45,
-                    phi: 60,
-                    radius: 11,
-                    tx: -0.5,
-                    ty: -0.8,
-                    tz: -0.5,
-                    duration: 2,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.office3D) {
-                            this.office3D.setAttribute('camera-orbit', `${this.officeProxyMobile.theta}deg ${this.officeProxyMobile.phi}deg ${this.officeProxyMobile.radius}m`);
-                            this.office3D.setAttribute('camera-target', `${this.officeProxyMobile.tx}m ${this.officeProxyMobile.ty}m ${this.officeProxyMobile.tz}m`);
-                        }
-                    }
-                })
-                .to("#card-training", { opacity: 1, y: 0, pointerEvents: "auto", duration: 1.2, ease: "power2.out" }, "<+0.4")
-                .to({}, { duration: 1.8 }) // delay
-                .to("#card-training", { opacity: 0, y: -30, pointerEvents: "none", duration: 0.8, ease: "power2.in" })
-                .to(this.officeProxyMobile, {
-                    theta: 0,
-                    phi: 80,
-                    radius: 28,
-                    tx: 0,
-                    ty: -1.5,
-                    tz: 0,
-                    duration: 2.5,
-                    ease: "power2.inOut",
-                    onUpdate: () => {
-                        if (this.office3D) {
-                            this.office3D.setAttribute('camera-orbit', `${this.officeProxyMobile.theta}deg ${this.officeProxyMobile.phi}deg ${this.officeProxyMobile.radius}m`);
-                            this.office3D.setAttribute('camera-target', `${this.officeProxyMobile.tx}m ${this.officeProxyMobile.ty}m ${this.officeProxyMobile.tz}m`);
-                        }
-                    }
-                }, "<")
-                .to("#office-3d", { opacity: 0, duration: 1.5, ease: "power2.inOut" }, "<+0.5")
-                .to(".scene-wrapper", { opacity: 0, duration: 0.8, ease: "power2.inOut" }, "<+0.5")
-                .set(".scene-wrapper", { display: "none" });
-        });
-
-        window.addEventListener("resize", () => {
-            if (this.timeline) {
-                this.timeline.invalidate();
-            }
-            ScrollTrigger.refresh();
-        });
-    }
-
-    addEventListeners() {
-        window.addEventListener('resize', this.resize.bind(this));
-
-        // Desktop mouse tracking tilt
-        this.mousemoveHandler = (e) => {
-            this.targetMouse.x = (e.clientX / window.innerWidth) - 0.5;
-            this.targetMouse.y = (e.clientY / window.innerHeight) - 0.5;
-        };
-        window.addEventListener('mousemove', this.mousemoveHandler);
-
-        // Mobile touch swipe offset tracking
-        let touchStart = { x: 0, y: 0 };
-        this.touchstartHandler = (e) => {
-            touchStart.x = e.touches[0].clientX;
-            touchStart.y = e.touches[0].clientY;
-        };
-        this.touchmoveHandler = (e) => {
-            const touchX = e.touches[0].clientX;
-            const touchY = e.touches[0].clientY;
-            
-            const dx = (touchX - touchStart.x) / window.innerWidth;
-            const dy = (touchY - touchStart.y) / window.innerHeight;
-            
-            this.targetMouse.x = Math.max(-0.6, Math.min(0.6, this.targetMouse.x + dx * 0.15));
-            this.targetMouse.y = Math.max(-0.6, Math.min(0.6, this.targetMouse.y + dy * 0.15));
-            
-            touchStart.x = touchX;
-            touchStart.y = touchY;
-        };
-        window.addEventListener('touchstart', this.touchstartHandler, { passive: true });
-        window.addEventListener('touchmove', this.touchmoveHandler, { passive: true });
-    }
-
-    animate() {
-        // Mouse tilt interpolation for organic lag/inertia
-        this.currentMouse.x += (this.targetMouse.x - this.currentMouse.x) * 0.08;
-        this.currentMouse.y += (this.targetMouse.y - this.currentMouse.y) * 0.08;
-
-        // Apply mouse tilt exclusively to #building-3d camera-orbit
-        if (this.building3D) {
-            const proxy = this.isMobile ? this.buildingProxyMobile : this.buildingProxy;
-            if (proxy) {
-                const deltaTheta = this.currentMouse.x * 10; // subtle +/- 5deg based on cursor position
-                const deltaPhi = this.currentMouse.y * 10;   // subtle +/- 5deg
-                const finalTheta = proxy.theta + deltaTheta;
-                const finalPhi = proxy.phi + deltaPhi;
-                this.building3D.setAttribute('camera-orbit', `${finalTheta}deg ${finalPhi}deg ${proxy.radius}m`);
-            }
-        }
-
-        this.animationId = requestAnimationFrame(this.animate.bind(this));
-    }
-}
-
-// ------------------------------------------------------------------
-// UI Interactions & GSAP Setup
-// ------------------------------------------------------------------
-
-document.addEventListener("DOMContentLoaded", () => {
-    // 1. Initialize High-Performance 3D Core Canvas
-    new Immersive3DSceneApp();
-
-    // 2. Set Year
-    document.getElementById('year').textContent = new Date().getFullYear();
-
-    // 3. Navbar Scroll & Custom Immersive Smooth Navigation
-    const navbar = document.querySelector('.navbar');
-    window.addEventListener('scroll', () => {
-        if (window.scrollY > 50) {
-            navbar.classList.add('scrolled');
-        } else {
-            navbar.classList.remove('scrolled');
-        }
+  // ======================================================================
+  // 1. CONFIGURACIÓN DEL ENTORNO THREE.JS
+  // ======================================================================
+  initThree() {
+    // Escena
+    this.scene = new THREE.Scene();
+    
+    // Cámara de Perspectiva Adaptada para Profundidad Cinematográfica
+    this.camera = new THREE.PerspectiveCamera(
+      58,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    this.camera.position.set(this.baseCameraPos.x, this.baseCameraPos.y, this.baseCameraPos.z);
+    
+    // Renderizador optimizado
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true,
+      alpha: true,
+      powerPreference: "high-performance"
     });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.25;
+  }
 
-    const scrollContainer = document.querySelector('.scroll-container');
-    const navLinks = document.querySelectorAll('.desktop-nav a, .mobile-nav-links a, .hero-actions a, .logo, .mobile-nav-links .btn');
+  // ======================================================================
+  // 2. CREACIÓN DE LA TEXTURA DE PARTÍCULA (CANVAS DINÁMICO EN MEMORIA)
+  // ======================================================================
+  createCircleTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    
+    // Gradiente Radial de Alto Fulgor (Cian a Púrpura y Transparencia)
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 30);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+    gradient.addColorStop(0.15, 'rgba(0, 242, 254, 0.95)');
+    gradient.addColorStop(0.45, 'rgba(127, 0, 255, 0.45)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 64, 64);
+    
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  // ======================================================================
+  // 3. GENERADOR MATEMÁTICO DE GALAXIA ESPIRAL
+  // ======================================================================
+  createGalaxy() {
+    const count = this.galaxyParams.count;
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const speedOffsets = new Float32Array(count);
+    
+    const colorCore = new THREE.Color(this.galaxyParams.coreColor);
+    const colorOuter = new THREE.Color(this.galaxyParams.outerColor);
+    const colorOutermost = new THREE.Color(this.galaxyParams.outermostColor);
+    
+    for (let i = 0; i < count; i++) {
+      // Distribución Exponencial: Mucho más denso en el centro
+      const r = Math.pow(Math.random(), 2.8) * this.galaxyParams.radius;
+      
+      // Ángulo de Brazo Espiral
+      const armAngle = ((i % this.galaxyParams.arms) * Math.PI * 2) / this.galaxyParams.arms;
+      const spinAngle = r * this.galaxyParams.spin;
+      
+      // Dispersión Caótica (Efecto de Niebla Galáctica / Nube Estelar)
+      const dispersionPower = 3;
+      const spreadFactor = 0.26 * (r * 0.35 + 0.1);
+      
+      const randomX = Math.pow(Math.random(), dispersionPower) * (Math.random() < 0.5 ? 1 : -1) * spreadFactor;
+      const randomY = Math.pow(Math.random(), dispersionPower) * (Math.random() < 0.5 ? 1 : -1) * spreadFactor * 0.6;
+      const randomZ = Math.pow(Math.random(), dispersionPower) * (Math.random() < 0.5 ? 1 : -1) * spreadFactor;
+      
+      const x = Math.cos(armAngle + spinAngle) * r + randomX;
+      const y = randomY;
+      const z = Math.sin(armAngle + spinAngle) * r + randomZ;
+      
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = z;
+      
+      // Interpolación de Color Cósmico Basada en el Radio
+      const mixedColor = colorCore.clone();
+      const radiusRatio = r / this.galaxyParams.radius;
+      
+      if (radiusRatio < 0.35) {
+        // Núcleo a Brazo Medio (Cian a Púrpura)
+        mixedColor.lerp(colorOuter, radiusRatio * 2.85);
+      } else {
+        // Brazo Medio a Extremos (Púrpura a Rosa Brillante)
+        mixedColor.lerp(colorOuter, 1.0);
+        mixedColor.lerp(colorOutermost, (radiusRatio - 0.35) * 1.54);
+      }
+      
+      colors[i * 3] = mixedColor.r;
+      colors[i * 3 + 1] = mixedColor.g;
+      colors[i * 3 + 2] = mixedColor.b;
+      
+      // Velocidad individual de rotación (Kepleriana: más rápido en el núcleo)
+      speedOffsets[i] = (Math.random() * 0.3 + 0.1) * (1 / (r * 0.6 + 0.5));
+    }
+    
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    
+    // Material de Partículas Luminosas Additive Blending
+    const material = new THREE.PointsMaterial({
+      size: 0.115,
+      sizeAttenuation: true,
+      depthWrite: false,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+      map: this.createCircleTexture()
+    });
+    
+    this.galaxy = new THREE.Points(geometry, material);
+    this.scene.add(this.galaxy);
+    this.galaxySpeedOffsets = speedOffsets;
+  }
+
+  // ======================================================================
+  // 4. CREACIÓN DEL NÚCLEO CENTRAL DE DOBLE MALLA (PLASMA ENERGY CORE)
+  // ======================================================================
+  createCentralCore() {
+    this.coreGroup = new THREE.Group();
+    
+    // A. Núcleo Interno (Esfera Translúcida Brillante)
+    const innerGeom = new THREE.SphereGeometry(0.9, 64, 64);
+    const innerMat = new THREE.MeshStandardMaterial({
+      color: 0x00f2fe,
+      emissive: 0x7f00ff,
+      emissiveIntensity: 0.95,
+      roughness: 0.12,
+      metalness: 0.15,
+      transparent: true,
+      opacity: 0.88,
+      flatShading: false
+    });
+    this.innerSphere = new THREE.Mesh(innerGeom, innerMat);
+    this.coreGroup.add(this.innerSphere);
+    
+    // B. Escudo Exterior (Icosaedro de Geometría Sagrada)
+    const outerGeom = new THREE.IcosahedronGeometry(1.3, 2);
+    const outerMat = new THREE.MeshBasicMaterial({
+      color: 0x00f2fe,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending
+    });
+    this.outerShell = new THREE.Mesh(outerGeom, outerMat);
+    this.coreGroup.add(this.outerShell);
+    
+    // Posición por defecto
+    this.coreGroup.position.set(0, 0, 0);
+    this.scene.add(this.coreGroup);
+  }
+
+  // ======================================================================
+  // 5. CONFIGURACIÓN DE ILUMINACIÓN DE APOYO
+  // ======================================================================
+  setupLights() {
+    // Luz Puntual de Alta Intensidad dentro de la esfera
+    const coreLight = new THREE.PointLight(0x00f2fe, 3.5, 12);
+    coreLight.position.set(0, 0, 0);
+    this.coreGroup.add(coreLight);
+    
+    // Luz ambiental suave para matizar
+    const ambientLight = new THREE.AmbientLight(0x070913, 0.5);
+    this.scene.add(ambientLight);
+    
+    // Luces direccionales laterales para realzar la volumetría de la esfera
+    const dirLight1 = new THREE.DirectionalLight(0x7f00ff, 1.8);
+    dirLight1.position.set(5, 5, 2);
+    this.scene.add(dirLight1);
+    
+    const dirLight2 = new THREE.DirectionalLight(0x00f2fe, 1.2);
+    dirLight2.position.set(-5, -5, 2);
+    this.scene.add(dirLight2);
+  }
+
+  // ======================================================================
+  // 6. EVENTOS DE INTERACCIÓN (MOUSE Y RESIZE)
+  // ======================================================================
+  setupInteraction() {
+    // Parámetros de seguimiento del ratón
+    window.addEventListener('mousemove', (e) => {
+      // Rango de -0.5 a 0.5
+      this.targetMouse.x = (e.clientX / window.innerWidth) - 0.5;
+      this.targetMouse.y = (e.clientY / window.innerHeight) - 0.5;
+    });
+    
+    // Resize Dinámico con Invalidación de ScrollTrigger
+    window.addEventListener('resize', () => {
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      
+      // Notificar a ScrollTrigger y recrear el timeline para re-calcular offsets
+      ScrollTrigger.refresh();
+      if (this.journeyTimeline) {
+        this.journeyTimeline.invalidate();
+      }
+    });
+  }
+
+  // ======================================================================
+  // 7. TIMELINE MAESTRO Y ORQUESTACIÓN CINEMÁTICA (GSAP + SCROLLTRIGGER)
+  // ======================================================================
+  initAnimations() {
+    gsap.registerPlugin(ScrollTrigger);
+    
+    // Desvanecer el canvas principal al entrar a la sección tradicional de Proyectos
+    gsap.to(this.canvas, {
+      opacity: 0.12,
+      scrollTrigger: {
+        trigger: "#sec-projects",
+        start: "top 95%",
+        end: "top 35%",
+        scrub: true
+      }
+    });
+    
+    // Ocultar y contraer la esfera al ir a secciones tradicionales
+    gsap.to(this.coreGroup.scale, {
+      x: 0.001,
+      y: 0.001,
+      z: 0.001,
+      scrollTrigger: {
+        trigger: "#sec-projects",
+        start: "top 95%",
+        end: "top 45%",
+        scrub: true
+      }
+    });
+    
+    // Selección de Slides de Estación
+    const slides = [
+      document.getElementById('slide-hero'),
+      document.getElementById('slide-webdev'),
+      document.getElementById('slide-automation'),
+      document.getElementById('slide-marketing'),
+      document.getElementById('slide-training')
+    ];
+    
+    // Crear el Timeline Maestro Pinned de las 5 estaciones
+    this.journeyTimeline = gsap.timeline({
+      scrollTrigger: {
+        trigger: ".journey-wrapper",
+        start: "top top",
+        end: "bottom bottom",
+        scrub: 1.15, // Butter-smooth inercia
+        pin: ".scroll-container",
+        pinSpacing: false,
+        snap: {
+          snapTo: [0.0, 0.25, 0.5, 0.75, 1.0], // Imantación matemática a cada slide (5 slides = 4 tramos de 0.25)
+          duration: { min: 0.45, max: 0.85 },
+          delay: 0.08,
+          ease: "power2.out"
+        },
+        onUpdate: (self) => {
+          // Detectar la estación activa en base al progreso de scroll
+          const progress = self.progress;
+          let activeIndex = 0;
+          
+          if (progress < 0.125) activeIndex = 0;
+          else if (progress < 0.375) activeIndex = 1;
+          else if (progress < 0.625) activeIndex = 2;
+          else if (progress < 0.875) activeIndex = 3;
+          else activeIndex = 4;
+          
+          // Actualizar menú de navegación activo
+          this.updateActiveNavLink(activeIndex);
+        }
+      }
+    });
+    
+    // ======================================================================
+    // CORE DE ANIMACIONES CRONOMETRADAS DEL TIMELINE VIAJE
+    // ======================================================================
+    
+    // Fase inicial (Hero visible)
+    gsap.set(slides[0], { autoAlpha: 1, y: 0 });
+    gsap.set(slides.slice(1), { autoAlpha: 0, y: 50 });
+    
+    // TRAMO 1: Hero (Estación 0) -> Web Dev & IA (Estación 1)
+    // Progreso: 0.0 -> 0.25
+    this.journeyTimeline
+      .to(slides[0], { autoAlpha: 0, y: -50, duration: 0.4 }, "t1")
+      .to(this.coreGroup.position, { x: 2.3, y: 0.3, z: 0.5, duration: 0.8, ease: "power2.inOut" }, "t1")
+      .to(this.coreGroup.scale, { x: 1.45, y: 1.45, z: 1.45, duration: 0.4, ease: "power1.in" }, "t1")
+      .to(this.coreGroup.scale, { x: 1.15, y: 1.15, z: 1.15, duration: 0.4, ease: "power1.out" }, "t1+=0.4")
+      .to(this.baseCameraPos, { x: -0.3, y: 0, z: 8.0, duration: 0.8, ease: "power2.inOut" }, "t1")
+      .to(this.galaxy.rotation, { y: Math.PI * 0.4, x: 0.4, z: 0.2, duration: 0.8, ease: "power2.inOut" }, "t1")
+      .to(slides[1], { autoAlpha: 1, y: 0, duration: 0.4 }, "t1+=0.4")
+      
+      // TRAMO 2: Web Dev & IA (Estación 1) -> Automatización & Google (Estación 2)
+      // Progreso: 0.25 -> 0.50
+      .to(slides[1], { autoAlpha: 0, y: -50, duration: 0.4 }, "t2")
+      .to(this.coreGroup.position, { x: -2.3, y: -0.2, z: 0.2, duration: 0.8, ease: "power2.inOut" }, "t2")
+      .to(this.coreGroup.scale, { x: 0.75, y: 0.75, z: 0.75, duration: 0.4, ease: "power1.in" }, "t2")
+      .to(this.coreGroup.scale, { x: 1.2, y: 1.2, z: 1.2, duration: 0.4, ease: "power1.out" }, "t2+=0.4")
+      .to(this.baseCameraPos, { x: 0.3, y: 0.1, z: 8.2, duration: 0.8, ease: "power2.inOut" }, "t2")
+      .to(this.galaxy.rotation, { y: Math.PI * 0.95, x: -0.3, z: -0.3, duration: 0.8, ease: "power2.inOut" }, "t2")
+      .to(slides[2], { autoAlpha: 1, y: 0, duration: 0.4 }, "t2+=0.4")
+      
+      // TRAMO 3: Automatización (Estación 2) -> Marketing & Tracción (Estación 3)
+      // Progreso: 0.50 -> 0.75
+      .to(slides[2], { autoAlpha: 0, y: -50, duration: 0.4 }, "t3")
+      .to(this.coreGroup.position, { x: 2.3, y: -0.4, z: 0.6, duration: 0.8, ease: "power2.inOut" }, "t3")
+      .to(this.coreGroup.scale, { x: 1.5, y: 1.5, z: 1.5, duration: 0.4, ease: "power1.in" }, "t3")
+      .to(this.coreGroup.scale, { x: 1.1, y: 1.1, z: 1.1, duration: 0.4, ease: "power1.out" }, "t3+=0.4")
+      .to(this.baseCameraPos, { x: -0.4, y: -0.1, z: 7.9, duration: 0.8, ease: "power2.inOut" }, "t3")
+      .to(this.galaxy.rotation, { y: Math.PI * 1.35, x: 0.45, z: 0.15, duration: 0.8, ease: "power2.inOut" }, "t3")
+      .to(slides[3], { autoAlpha: 1, y: 0, duration: 0.4 }, "t3+=0.4")
+      
+      // TRAMO 4: Marketing (Estación 3) -> Capacitación & Soporte (Estación 4)
+      // Progreso: 0.75 -> 1.0
+      .to(slides[3], { autoAlpha: 0, y: -50, duration: 0.4 }, "t4")
+      .to(this.coreGroup.position, { x: -2.1, y: 0.1, z: 0.3, duration: 0.8, ease: "power2.inOut" }, "t4")
+      .to(this.coreGroup.scale, { x: 0.9, y: 0.9, z: 0.9, duration: 0.4, ease: "power1.in" }, "t4")
+      .to(this.coreGroup.scale, { x: 1.25, y: 1.25, z: 1.25, duration: 0.4, ease: "power1.out" }, "t4+=0.4")
+      .to(this.baseCameraPos, { x: 0.2, y: 0, z: 8.3, duration: 0.8, ease: "power2.inOut" }, "t4")
+      .to(this.galaxy.rotation, { y: Math.PI * 1.85, x: -0.15, z: -0.1, duration: 0.8, ease: "power2.inOut" }, "t4")
+      .to(slides[4], { autoAlpha: 1, y: 0, duration: 0.4 }, "t4+=0.4");
+      
+    // Enlace de clics de menú y botones de viaje
+    this.setupNavigation();
+  }
+
+  // ======================================================================
+  // 8. CONTROLADORES DE NAVEGACIÓN Y CLICS DE ANCLAJE
+  // ======================================================================
+  setupNavigation() {
+    const navLinks = document.querySelectorAll('.nav-link, .nav-logo, .btn-journey, .btn-scroll-down');
     
     navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            const targetId = link.getAttribute('href');
-            if (targetId && targetId.startsWith('#')) {
-                e.preventDefault();
-                let targetScrollY = 0;
-                
-                if (targetId.startsWith('#sec-')) {
-                    let progress = 0;
-                    if (targetId === '#sec-hero') progress = 0;
-                    else if (targetId === '#sec-webdev') progress = 0.22;
-                    else if (targetId === '#sec-automation') progress = 0.42;
-                    else if (targetId === '#sec-marketing') progress = 0.62;
-                    else if (targetId === '#sec-training') progress = 0.82;
-                    
-                    const startY = scrollContainer.offsetTop;
-                    const scrollHeight = scrollContainer.scrollHeight - window.innerHeight;
-                    targetScrollY = startY + progress * scrollHeight;
-                } else {
-                    const targetEl = document.querySelector(targetId);
-                    if (targetEl) {
-                        targetScrollY = targetEl.offsetTop;
-                    } else {
-                        return;
-                    }
-                }
-                
-                const obj = { y: window.scrollY };
-                gsap.to(obj, {
-                    y: targetScrollY,
-                    duration: 1.2,
-                    ease: "power2.inOut",
-                    onUpdate: () => window.scrollTo(0, obj.y)
-                });
-            }
-        });
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        
+        const targetId = link.getAttribute('href');
+        const targetIndex = link.getAttribute('data-index') || link.getAttribute('data-target');
+        
+        if (targetIndex !== null && targetIndex !== undefined) {
+          // Para las 5 estaciones del Timeline inmersivo
+          // Convertimos el index de estación a coordenadas de scroll absolutas
+          const targetY = parseInt(targetIndex) * window.innerHeight;
+          
+          gsap.to(window, {
+            scrollTo: targetY,
+            duration: 1.2,
+            ease: "power3.out"
+          });
+        } else {
+          // Para secciones tradicionales inferiores (Proyectos, Metodologia, Contacto)
+          const targetEl = document.querySelector(targetId);
+          if (targetEl) {
+            // Calculamos la posición real sumando la altura del viaje (500vh)
+            const rect = targetEl.getBoundingClientRect();
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            const targetY = rect.top + scrollTop;
+            
+            gsap.to(window, {
+              scrollTo: targetY,
+              duration: 1.4,
+              ease: "power3.out"
+            });
+          }
+        }
+        
+        // Cerrar menú móvil si estuviera abierto
+        document.getElementById('nav-links').classList.remove('open');
+        document.getElementById('menu-toggle').classList.remove('open');
+      });
     });
+    
+    // Resaltar navbar al scrollear
+    window.addEventListener('scroll', () => {
+      const nav = document.getElementById('main-nav');
+      if (window.scrollY > 50) {
+        nav.classList.add('scrolled');
+      } else {
+        nav.classList.remove('scrolled');
+      }
+      
+      // Detección de secciones tradicionales
+      this.detectTraditionalSectionsActive();
+    });
+    
+    // Toggle Menú Móvil
+    const menuToggle = document.getElementById('menu-toggle');
+    const navLinksContainer = document.getElementById('nav-links');
+    
+    menuToggle.addEventListener('click', () => {
+      menuToggle.classList.toggle('open');
+      navLinksContainer.classList.toggle('open');
+    });
+  }
 
-    // 4. Magnetic Buttons (Desktop Only)
-    if (!window.matchMedia('(hover: none)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && window.innerWidth >= 968) {
-        document.querySelectorAll('.btn-magnetic').forEach(btn => {
-            btn.addEventListener('mousemove', (e) => {
-                const rect = btn.getBoundingClientRect();
-                const x = e.clientX - rect.left - rect.width / 2;
-                const y = e.clientY - rect.top - rect.height / 2;
-                
-                gsap.to(btn, { x: x * 0.3, y: y * 0.3, duration: 0.3, ease: "power2.out" });
-                const text = btn.querySelector('.btn-text');
-                if (text) gsap.to(text, { x: x * 0.1, y: y * 0.1, duration: 0.3, ease: "power2.out" });
-            });
+  // Actualizar indicador activo en Navbar
+  updateActiveNavLink(index) {
+    const links = document.querySelectorAll('.nav-link:not(.nav-link-traditional)');
+    links.forEach((link, i) => {
+      if (i === index) {
+        link.classList.add('active');
+      } else {
+        link.classList.remove('active');
+      }
+    });
+  }
 
-            btn.addEventListener('mouseleave', () => {
-                gsap.to(btn, { x: 0, y: 0, duration: 0.5, ease: "elastic.out(1, 0.3)" });
-                const text = btn.querySelector('.btn-text');
-                if (text) gsap.to(text, { x: 0, y: 0, duration: 0.5, ease: "elastic.out(1, 0.3)" });
-            });
-        });
+  // Detectar y activar links de secciones tradicionales en navbar
+  detectTraditionalSectionsActive() {
+    const scrollPos = window.scrollY + 200;
+    const traditionalLinks = document.querySelectorAll('.nav-link.nav-link-traditional');
+    const sections = [
+      { id: '#sec-projects', link: traditionalLinks[0] },
+      { id: '#sec-methodology', link: traditionalLinks[1] }
+    ];
+    
+    // Si estamos en el viaje 3D, desactivar los tradicionales
+    if (window.scrollY < window.innerHeight * 4.2) {
+      traditionalLinks.forEach(l => l.classList.remove('active'));
+      return;
     }
-
-    // 5. GSAP Scroll Reveals
-    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        gsap.utils.toArray('.section-title').forEach(title => {
-            gsap.from(title, {
-                scrollTrigger: { trigger: title, start: "top 85%" },
-                y: 40, opacity: 0, duration: 0.8, ease: "power3.out"
-            });
-        });
-
-        const pathFill = document.querySelector('.path-fill');
-        if (pathFill) {
-            const length = pathFill.getTotalLength();
-            gsap.set(pathFill, { strokeDasharray: length, strokeDashoffset: length });
-            gsap.to(pathFill, {
-                strokeDashoffset: 0,
-                scrollTrigger: { trigger: ".timeline", start: "top center", end: "bottom center", scrub: 1 }
-            });
+    
+    sections.forEach(sec => {
+      const el = document.querySelector(sec.id);
+      if (el) {
+        const top = el.offsetTop;
+        const height = el.offsetHeight;
+        if (scrollPos >= top && scrollPos < top + height) {
+          // Desactivar todos los demás
+          document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+          sec.link.classList.add('active');
         }
+      }
+    });
+  }
 
-        gsap.utils.toArray('.timeline-step').forEach((step) => {
-            gsap.from(step.querySelector('.step-content'), {
-                scrollTrigger: { trigger: step, start: "top 85%" },
-                x: step.classList.contains('right') && window.innerWidth >= 768 ? 50 : -50, opacity: 0, duration: 0.8, ease: "power3.out"
-            });
-            gsap.from(step.querySelector('.step-dot'), {
-                scrollTrigger: { trigger: step, start: "top 85%" },
-                scale: 0, opacity: 0, duration: 0.6, ease: "back.out(1.7)"
-            });
-        });
+  // ======================================================================
+  // 9. BUCLE DE FRAME (RENDER DE RENDIMIENTO A 60 FPS)
+  // ======================================================================
+  animate() {
+    requestAnimationFrame(() => this.animate());
+    
+    const elapsedTime = this.clock.getElapsedTime();
+    
+    // A. Rotación Natural e Inercia de la Galaxia Cósmica
+    // GSAP controla la rotación base del timeline, aquí sumamos rotación constante por tiempo
+    if (this.galaxy) {
+      this.galaxy.rotation.y += 0.0016;
+      
+      // Animación de dispersión o vibración sutil de las partículas
+      const positions = this.galaxy.geometry.attributes.position.array;
+      const count = this.galaxyParams.count;
+      
+      // Solo deformamos un pequeño porcentaje de partículas para mantener alto rendimiento (0 asignaciones de memoria)
+      for (let i = 0; i < count; i += 8) {
+        const index = i * 3;
+        // Pequeño bamboleo matemático senoidal individual
+        positions[index + 1] += Math.sin(elapsedTime * this.galaxySpeedOffsets[i] * 2) * 0.0006;
+      }
+      this.galaxy.geometry.attributes.position.needsUpdate = true;
     }
-
-    // 6. Interactive Carousel Logic
-    const track = document.querySelector('.carousel-track');
-    if (track) {
-        const itemsHTML = track.innerHTML;
-        track.innerHTML += itemsHTML;
-
-        let totalWidth = track.scrollWidth / 2;
-        
-        window.addEventListener('resize', () => {
-            totalWidth = track.scrollWidth / 2;
-            carouselAnim.vars.x = () => -totalWidth;
-            carouselAnim.invalidate().restart();
-        });
-
-        const carouselAnim = gsap.to(track, {
-            x: () => -totalWidth,
-            ease: "none",
-            duration: 25,
-            repeat: -1
-        });
-
-        const carouselItems = document.querySelectorAll('.carousel-item');
-        carouselItems.forEach(item => {
-            item.addEventListener('mouseenter', () => gsap.to(carouselAnim, { timeScale: 0.15, duration: 0.5 }));
-            item.addEventListener('mouseleave', () => gsap.to(carouselAnim, { timeScale: 1, duration: 0.5 }));
-            item.addEventListener('touchstart', () => gsap.to(carouselAnim, { timeScale: 0.15, duration: 0.5 }), {passive: true});
-            item.addEventListener('touchend', () => gsap.to(carouselAnim, { timeScale: 1, duration: 0.5 }));
-        });
-
-        // 7. Modal Integration
-        const modal = document.getElementById('project-modal');
-        const modalClose = document.getElementById('modal-close-btn');
-        const modalTitle = document.getElementById('modal-title');
-        const modalLink = document.getElementById('modal-link');
-        const modalMediaContainer = document.getElementById('modal-media-container');
-
-        carouselItems.forEach(item => {
-            item.addEventListener('click', () => {
-                const title = item.getAttribute('data-title');
-                const imgSrc = item.getAttribute('data-image');
-                const link = item.getAttribute('data-link');
-
-                modalTitle.textContent = title;
-                modalLink.href = link;
-                modalMediaContainer.innerHTML = `<img src="${imgSrc}" alt="${title}">`;
-
-                modal.classList.add('active');
-                document.body.style.overflow = 'hidden';
-            });
-        });
-
-        modalClose.addEventListener('click', () => {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-            setTimeout(() => { modalMediaContainer.innerHTML = ''; }, 400);
-        });
-
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modalClose.click();
-        });
+    
+    // B. Animación Pulsante Orgánica del Núcleo Central
+    if (this.coreGroup) {
+      // Rotaciones encontradas (Look de alta tecnología sagrada)
+      this.innerSphere.rotation.y += 0.008;
+      this.innerSphere.rotation.x += 0.004;
+      
+      this.outerShell.rotation.y -= 0.005;
+      this.outerShell.rotation.z += 0.007;
+      
+      // Efecto elástico de pulsación senoidal en escala (Simula latidos de energía pura)
+      const pulseScale = 1.0 + Math.sin(elapsedTime * 3.5) * 0.052;
+      this.innerSphere.scale.set(pulseScale, pulseScale, pulseScale);
+      
+      // C. Intercalado de Inercia de Ratón (Paralaje Real 3D)
+      // Interpolación lineal (Lerp) para fluidez extrema
+      this.mouse.x += (this.targetMouse.x * this.parallaxIntensity - this.mouse.x) * 0.07;
+      this.mouse.y += (this.targetMouse.y * this.parallaxIntensity - this.mouse.y) * 0.07;
+      
+      // Sumar la inercia del mouse a la cámara de forma local
+      this.camera.position.x = this.baseCameraPos.x + this.mouse.x;
+      this.camera.position.y = this.baseCameraPos.y - this.mouse.y;
+      
+      // Enfocar siempre la cámara hacia el núcleo elástico tridimensional
+      this.camera.lookAt(this.coreGroup.position);
     }
+    
+    // D. Renderizado del Frame
+    this.renderer.render(this.scene, this.camera);
+  }
+}
 
-    // Color Engine Modal Logic
-    const convergenceBtn = document.getElementById('convergence-btn');
-    const convergenceModal = document.getElementById('convergence-modal');
-    const convergenceClose = document.getElementById('convergence-close-btn');
-    const swatches = document.querySelectorAll('.swatch');
-
-    if (convergenceBtn && convergenceModal) {
-        convergenceBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            convergenceModal.classList.add('active');
-            document.body.style.overflow = 'hidden';
+// Inicialización del Motor una vez que el DOM esté completamente cargado
+window.addEventListener('DOMContentLoaded', () => {
+  // GSAP ScrollToPlugin CDN no está incluido por defecto, lo implementamos con JS nativo robusto.
+  // Pero para que gsap.to(window, {scrollTo: ...}) funcione, necesitamos emular el comportamiento o inyectar el plugin.
+  // Para evitar dependencias externas extras y asegurar compatibilidad total de inmediato:
+  // Programamos un Polyfill rápido para que gsap reconozca scrollTo en window usando scrollTo nativo si fuera necesario,
+  // o simplemente inyectamos la redirección nativa si no existe el plugin.
+  if (window.gsap && !window.gsap.plugins.scrollTo) {
+    // Registramos un redireccionamiento manual para animar el scroll de forma nativa e ininterrumpida
+    gsap.registerEffect({
+      name: "scrollToNative",
+      effect: (targets, config) => {
+        const start = window.scrollY;
+        const change = config.y - start;
+        const obj = { val: 0 };
+        return gsap.to(obj, {
+          val: 1,
+          duration: config.duration || 1,
+          ease: config.ease || "power3.out",
+          onUpdate: () => {
+            window.scrollTo(0, start + change * obj.val);
+          }
         });
-
-        convergenceClose.addEventListener('click', () => {
-            convergenceModal.classList.remove('active');
-            document.body.style.overflow = '';
-        });
-
-        convergenceModal.addEventListener('click', (e) => {
-            if (e.target === convergenceModal) convergenceClose.click();
-        });
-
-        swatches.forEach(swatch => {
-            swatch.addEventListener('click', () => {
-                document.documentElement.classList.add('theme-transitioning');
-                
-                swatches.forEach(s => s.classList.remove('active'));
-                swatch.classList.add('active');
-
-                const theme = swatch.getAttribute('data-theme');
-                if (theme === 'plum-tech') {
-                    document.documentElement.removeAttribute('data-theme');
-                } else {
-                    document.documentElement.setAttribute('data-theme', theme);
-                }
-
-                setTimeout(() => {
-                    document.documentElement.classList.remove('theme-transitioning');
-                }, 800);
-            });
-        });
-    }
-
-    // 8. Form Submission Logic
-    const form = document.getElementById('discovery-form');
-    if (form) {
-        // Ensure success msg is hidden by default
-        const successMsg = form.querySelector('.form-success');
-        if (successMsg) {
-            successMsg.style.display = 'none';
-            successMsg.style.opacity = '0';
-        }
-
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const btn = form.querySelector('.submit-btn');
-            const text = btn.querySelector('.btn-text');
-            const spinner = btn.querySelector('.spinner');
-
-            text.style.display = 'none';
-            spinner.style.display = 'block';
-            btn.style.pointerEvents = 'none';
-
-            setTimeout(() => {
-                spinner.style.display = 'none';
-                text.style.display = 'block';
-                
-                gsap.to(form.querySelectorAll('.form-group, .submit-btn'), {
-                    opacity: 0, y: -10, duration: 0.3, stagger: 0.1,
-                    onComplete: () => {
-                        form.querySelectorAll('.form-group, .submit-btn').forEach(el => el.style.display = 'none');
-                        successMsg.style.display = 'block';
-                        void successMsg.offsetWidth; 
-                        successMsg.style.opacity = '1';
-                        gsap.from(successMsg, { y: 20, duration: 0.5, ease: "power2.out" });
-                    }
-                });
-            }, 1500);
-        });
-    }
-
-    // 9. Mobile Nav Logic
-    const hamburger = document.getElementById('hamburger-btn');
-    const mobileNav = document.getElementById('mobile-nav');
-    const mobileLinks = document.querySelectorAll('.mobile-nav-links a');
-
-    if (hamburger && mobileNav) {
-        hamburger.addEventListener('click', () => {
-            hamburger.classList.toggle('active');
-            mobileNav.classList.toggle('active');
-            document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
-        });
-
-        mobileLinks.forEach(link => {
-            link.addEventListener('click', () => {
-                hamburger.classList.remove('active');
-                mobileNav.classList.remove('active');
-                document.body.style.overflow = '';
-            });
-        });
-        
-        window.addEventListener('resize', () => {
-            if (window.innerWidth >= 968 && mobileNav.classList.contains('active')) {
-                hamburger.classList.remove('active');
-                mobileNav.classList.remove('active');
-                document.body.style.overflow = '';
-            }
-        });
-    }
+      }
+    });
+    
+    // Sobreescribimos la llamada de scrollTo en el motor para usar el efecto nativo mapeado
+    gsap.install(window);
+    
+    // Modificamos el método de scroll de GSAP si no está cargado
+    const originalTo = gsap.to;
+    gsap.to = function(target, vars) {
+      if (target === window && vars.scrollTo !== undefined) {
+        const scrollY = vars.scrollTo;
+        const duration = vars.duration;
+        const ease = vars.ease;
+        return gsap.effects.scrollToNative(window, { y: scrollY, duration, ease });
+      }
+      return originalTo.apply(this, arguments);
+    };
+  }
+  
+  // Instanciar el motor
+  window.solemEngine = new SolemEngine();
 });

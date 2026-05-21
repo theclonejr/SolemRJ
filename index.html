@@ -1,390 +1,340 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solem RJ | Aliados Tecnológicos & Empoderamiento</title>
-    <meta name="description"
-        content="Solem RJ - Transformamos equipos y potenciamos rentabilidad. Desarrollo web, automatización y marketing con altos niveles de conversión.">
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap"
-        rel="stylesheet">
-    <!-- Styles -->
-    <link rel="stylesheet" href="styles.css">
-    <!-- Google Model Viewer -->
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SolemRJ // Más que código, Transformación.</title>
+  <meta name="description" content="No somos una agencia tradicional. Somos tus aliados tecnológicos. Diseñamos, implementamos y capacitamos a tu equipo para maximizar tu rentabilidad mediante desarrollo web, IA y automatizaciones.">
+  
+  <!-- Tipografía Premium: Outfit y Space Grotesk -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Estilos principales -->
+  <link rel="stylesheet" href="styles.css">
 </head>
+<body>
 
-<body class="lock-interaction">
-    <div class="noise-overlay"></div>
+  <!-- Canvas Fijo para Escena 3D de Alto Rendimiento -->
+  <canvas id="webgl-scene"></canvas>
 
-    <!-- Premium Preloader -->
-    <div id="preloader">
-        <div class="preloader-content">
-            <div class="preloader-logo">Solem<span class="mint-accent">RJ</span></div>
-            <div class="preloader-spinner">
-                <div class="spinner-ring"></div>
-            </div>
-            <p class="preloader-text">Iniciando experiencia interactiva...</p>
-        </div>
+  <!-- Barra de Navegación Flotante Premium -->
+  <nav class="navbar" id="main-nav">
+    <div class="nav-container">
+      <a href="#sec-hero" class="nav-logo" data-index="0">
+        Solem<span>RJ</span>
+      </a>
+      <button class="menu-toggle" aria-label="Abrir menú" id="menu-toggle">
+        <span class="bar"></span>
+        <span class="bar"></span>
+      </button>
+      <div class="nav-links" id="nav-links">
+        <a href="#sec-hero" class="nav-link active" data-index="0">Inicio</a>
+        <a href="#sec-webdev" class="nav-link" data-index="1">Web & IA</a>
+        <a href="#sec-automation" class="nav-link" data-index="2">Automatización</a>
+        <a href="#sec-marketing" class="nav-link" data-index="3">Marketing</a>
+        <a href="#sec-training" class="nav-link" data-index="4">Capacitación</a>
+        <a href="#sec-projects" class="nav-link nav-link-traditional">Proyectos</a>
+        <a href="#sec-methodology" class="nav-link nav-link-traditional">Metodología</a>
+        <a href="#sec-contact" class="nav-cta">Iniciar Proyecto</a>
+      </div>
     </div>
+  </nav>
 
-    <!-- Global WebGL Canvas Removed (replaced by immersive-particles Canvas) -->
+  <!-- CONTENEDOR PRINCIPAL DEL VIAJE 3D (Sección Pinned) -->
+  <div class="journey-wrapper">
+    <!-- Marcadores de posición para calcular los offsets de scroll correctos -->
+    <div id="sec-hero" class="scroll-marker" style="top: 0vh;"></div>
+    <div id="sec-webdev" class="scroll-marker" style="top: 100vh;"></div>
+    <div id="sec-automation" class="scroll-marker" style="top: 200vh;"></div>
+    <div id="sec-marketing" class="scroll-marker" style="top: 300vh;"></div>
+    <div id="sec-training" class="scroll-marker" style="top: 400vh;"></div>
 
-    <!-- Navigation -->
-    <header class="navbar">
-        <div class="logo">Solem<span class="mint-accent">RJ</span></div>
-        <nav class="desktop-nav">
-            <a href="#sec-hero">Inicio</a>
-            <a href="#sec-webdev">Web & IA</a>
-            <a href="#sec-automation">Automatización</a>
-            <a href="#sec-marketing">Marketing</a>
-            <a href="#sec-training">Capacitación</a>
-            <a href="#projects">Proyectos</a>
-            <a href="#workflow">Metodología</a>
-        </nav>
-        <div class="nav-actions" style="display: flex; gap: 1rem; align-items: center;">
-            <button id="convergence-btn" class="btn btn-secondary btn-magnetic" style="padding: 0.6rem 1.5rem;">
-                <span class="btn-text" style="font-size: 0.9rem;">✨ Elige tu experiencia</span>
-            </button>
-            <a href="#contact" class="btn btn-magnetic desktop-only" style="padding: 0.6rem 1.5rem;">
-                <span class="btn-text" style="font-size: 0.9rem;">Iniciar Transformación</span>
-            </a>
-            <!-- Hamburger Menu Button -->
-            <button class="hamburger" id="hamburger-btn" aria-label="Menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-        </div>
-    </header>
+    <div class="scroll-container">
+      <!-- Capa contenedora de las tarjetas interactivas overlay -->
+      <div class="immersive-content-overlay">
+        
+        <!-- ESTACIÓN 0: HERO / INICIO -->
+        <section class="station-slide active" id="slide-hero">
+          <div class="scroll-card sculpted-glass center-card animate-init">
+            <span class="station-badge">Ecosistema SolemRJ</span>
+            <h1 class="card-title text-gradient">Más que código,<br>Transformación.</h1>
+            <p class="card-text">
+              No somos una agencia tradicional. Somos tus aliados tecnológicos. Diseñamos, implementamos y capacitamos a tu equipo para maximizar tu rentabilidad.
+            </p>
+            <div class="card-actions">
+              <a href="#sec-webdev" class="btn btn-primary btn-journey" data-target="1">Ecosistema de Soluciones</a>
+              <a href="#sec-contact" class="btn btn-secondary">Iniciar Proyecto</a>
+            </div>
+          </div>
+        </section>
 
-    <!-- Mobile Nav Overlay -->
-    <div class="mobile-nav-overlay" id="mobile-nav">
-        <nav class="mobile-nav-links">
-            <a href="#sec-hero">Inicio</a>
-            <a href="#sec-webdev">Web & IA</a>
-            <a href="#sec-automation">Automatización</a>
-            <a href="#sec-marketing">Marketing</a>
-            <a href="#sec-training">Capacitación</a>
-            <a href="#projects">Proyectos</a>
-            <a href="#workflow">Metodología</a>
-            <a href="#contact" class="btn btn-magnetic">
-                <span class="btn-text">Iniciar Transformación</span>
-            </a>
-        </nav>
+        <!-- ESTACIÓN 1: WEB & IA -->
+        <section class="station-slide" id="slide-webdev">
+          <div class="scroll-card sculpted-glass left-card">
+            <span class="station-badge">Estación 01 // Inteligencia Digital</span>
+            <h2 class="card-title">Desarrollo Web &<br>Inteligencia Artificial</h2>
+            <p class="card-text">
+              Plataformas ultra-rápidas con conversiones calibradas. Integramos modelos de lenguaje y sistemas cognitivos directamente en tu flujo de trabajo.
+            </p>
+            <ul class="card-bullets">
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Interfaces Web Inmersivas y Responsivas</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Integración de LLMs, Chatbots y Agentes Autónomos</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Rendimiento LCP &lt; 1.2s y SEO optimizado</span>
+              </li>
+            </ul>
+            <div class="card-actions">
+              <a href="#sec-automation" class="btn btn-primary btn-journey" data-target="2">Siguiente Estación</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- ESTACIÓN 2: AUTOMATIZACIÓN -->
+        <section class="station-slide" id="slide-automation">
+          <div class="scroll-card sculpted-glass right-card">
+            <span class="station-badge">Estación 02 // Eficiencia Absoluta</span>
+            <h2 class="card-title">Google Ecosystem &<br>Automatizaciones</h2>
+            <p class="card-text">
+              Eliminamos el trabajo operativo manual. Conectamos tus bases de datos, CRMs y flujos de trabajo mediante Scripts a la medida dentro del ecosistema de Google.
+            </p>
+            <ul class="card-bullets">
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Automatización maestra de Google Sheets y Gmail</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Sincronización bidireccional de datos con API REST</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Ahorro de cientos de horas de tareas repetitivas</span>
+              </li>
+            </ul>
+            <div class="card-actions">
+              <a href="#sec-marketing" class="btn btn-primary btn-journey" data-target="3">Siguiente Estación</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- ESTACIÓN 3: MARKETING -->
+        <section class="station-slide" id="slide-marketing">
+          <div class="scroll-card sculpted-glass left-card">
+            <span class="station-badge">Estación 03 // Tracción & Impacto</span>
+            <h2 class="card-title">Marketing &<br>Tracción de Contenido</h2>
+            <p class="card-text">
+              No acumulamos vistas sin sentido. Calibramos embudos de ventas, producimos contenido audiovisual único con nuestro estudio creativo in-house y aceleramos conversiones orgánicas.
+            </p>
+            <ul class="card-bullets">
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Producción in-house de contenido de alto impacto</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Embudos de ventas y campañas virales optimizadas</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Métricas de retención elevadas en canales de tráfico</span>
+              </li>
+            </ul>
+            <div class="card-actions">
+              <a href="#sec-training" class="btn btn-primary btn-journey" data-target="4">Siguiente Estación</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- ESTACIÓN 4: CAPACITACIÓN -->
+        <section class="station-slide" id="slide-training">
+          <div class="scroll-card sculpted-glass right-card">
+            <span class="station-badge">Estación 04 // Transferencia de Valor</span>
+            <h2 class="card-title">Capacitación &<br>Acompañamiento</h2>
+            <p class="card-text">
+              Entrenamos a tu equipo en el uso de las soluciones implementadas para garantizar la total independencia operativa y el retorno de inversión acelerado.
+            </p>
+            <ul class="card-bullets">
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Transferencia completa de conocimientos y manuales</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Monitoreo del retorno de inversión y optimizaciones</span>
+              </li>
+              <li>
+                <svg class="bullet-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                <span>Soporte continuo como socios tecnológicos de confianza</span>
+              </li>
+            </ul>
+            <div class="card-actions">
+              <a href="#sec-projects" class="btn btn-primary btn-scroll-down">Ver Casos de Estudio</a>
+            </div>
+          </div>
+        </section>
+
+      </div>
     </div>
+  </div>
 
-    <main id="smooth-wrapper">
-        <div id="smooth-content">
-
-            <!-- Immersive Scroll-Driven Experience (Isometric Building & Stations) -->
-            <div class="scroll-container">
-                <!-- Invisible scroll anchors for navigation -->
-                <div id="sec-hero" class="scroll-anchor" style="position: absolute; top: 0; left: 0; width: 1px; height: 1px; pointer-events: none; z-index: -1;"></div>
-                <div id="sec-webdev" class="scroll-anchor" style="position: absolute; top: 22%; left: 0; width: 1px; height: 1px; pointer-events: none; z-index: -1;"></div>
-                <div id="sec-automation" class="scroll-anchor" style="position: absolute; top: 42%; left: 0; width: 1px; height: 1px; pointer-events: none; z-index: -1;"></div>
-                <div id="sec-marketing" class="scroll-anchor" style="position: absolute; top: 62%; left: 0; width: 1px; height: 1px; pointer-events: none; z-index: -1;"></div>
-                <div id="sec-training" class="scroll-anchor" style="position: absolute; top: 82%; left: 0; width: 1px; height: 1px; pointer-events: none; z-index: -1;"></div>
-
-                <div class="scene-wrapper">
-                    <!-- 3D Models Loaded Locally with Google <model-viewer> -->
-                    <model-viewer id="building-3d" src="assets/3d-models/edificio-sede.glb" camera-controls disable-zoom disable-pan interaction-prompt="none" shadow-intensity="1" exposure="1.2" camera-orbit="45deg 75deg 10m" camera-target="0m 2.5m 0m" field-of-view="30deg"></model-viewer>
-                    <model-viewer id="office-3d" src="assets/3d-models/oficina-laboratorio.gltf" camera-controls disable-zoom disable-pan interaction-prompt="none" shadow-intensity="1.5" exposure="1" camera-orbit="0deg 60deg 15m" camera-target="0m -1.5m 0m" field-of-view="30deg"></model-viewer>
-
-                <!-- Text Overlay Content Cards (Faded sequentially with ScrollTrigger) -->
-                <div class="immersive-content-overlay">
-                    
-                    <!-- Card 0: Hero / Intro -->
-                    <div class="scroll-card active-card" id="card-hero">
-                        <div class="badge">Más que código. Transformación.</div>
-                        <h1 class="hero-title">Escala tu negocio con tecnología <span>que empodera.</span></h1>
-                        <p class="hero-subtitle">No somos una agencia tradicional. Somos tus aliados tecnológicos. Diseñamos, implementamos y capacitamos a tu equipo para maximizar tu rentabilidad y alcanzar conversiones extraordinarias.</p>
-                        <div class="hero-actions">
-                            <a href="#projects" class="btn btn-primary btn-magnetic"><span class="btn-text">Ecosistema de Soluciones</span></a>
-                            <a href="#contact" class="btn btn-secondary btn-magnetic"><span class="btn-text">Iniciar Proyecto</span></a>
-                        </div>
-                        <div class="scroll-indicator">
-                            <div class="mouse"></div>
-                            <p>Haz scroll para ingresar al laboratorio</p>
-                        </div>
-                    </div>
-
-                    <!-- Card 1: Web Dev & AI -->
-                    <div class="scroll-card" id="card-webdev">
-                        <div class="badge">Estación 01 // Frontend & IA</div>
-                        <h2 class="card-title">Desarrollo Web & <span>Inteligencia Artificial</span></h2>
-                        <p class="card-desc">Plataformas ultra-rápidas con conversiones calibradas. Integramos modelos de lenguaje y sistemas cognitivos directamente en tus flujos de trabajo para potenciar las ventas de tu negocio.</p>
-                        <ul class="card-specs">
-                            <li><span>✦</span> Interfaces Web Inmersivas y Responsivas</li>
-                            <li><span>✦</span> Integración de LLMs, Chatbots and Agentes Autónomos</li>
-                            <li><span>✦</span> Rendimiento LCP &lt; 1.2s y SEO optimizado</li>
-                        </ul>
-                        <div class="card-actions">
-                            <a href="#contact" class="btn btn-primary btn-magnetic"><span class="btn-text">Agendar Diagnóstico</span></a>
-                        </div>
-                    </div>
-
-                    <!-- Card 2: Workspace Automations -->
-                    <div class="scroll-card" id="card-automation">
-                        <div class="badge">Estación 02 // Automatización</div>
-                        <h2 class="card-title">Google Ecosystem <span>& Automatizaciones</span></h2>
-                        <p class="card-desc">Eliminamos el trabajo operativo manual. Conectamos tus bases de datos, CRMs y flujos de trabajo mediante Scripts a la medida dentro del ecosistema de Google Sheets y APIs.</p>
-                        <ul class="card-specs">
-                            <li><span>✦</span> Automatización maestra de Google Sheets y Gmail</li>
-                            <li><span>✦</span> Sincronización bidireccional de datos con API REST</li>
-                            <li><span>✦</span> Ahorro de cientos de horas de tareas repetitivas</li>
-                        </ul>
-                        <div class="card-actions">
-                            <a href="#contact" class="btn btn-primary btn-magnetic"><span class="btn-text">Optimizar Procesos</span></a>
-                        </div>
-                    </div>
-
-                    <!-- Card 3: Marketing & Content -->
-                    <div class="scroll-card" id="card-marketing">
-                        <div class="badge">Estación 03 // Tracción Audiovisual</div>
-                        <h2 class="card-title">Marketing & <span>Tracción de Contenido</span></h2>
-                        <p class="card-desc">No acumulamos visitas sin sentido. Calibramos embudos de ventas, producimos contenido audiovisual único con nuestro estudio creativo in-house y aceleramos conversiones orgánicas.</p>
-                        <ul class="card-specs">
-                            <li><span>✦</span> Producción in-house de contenido audiovisual de alto impacto</li>
-                            <li><span>✦</span> Embudos de ventas y campañas virales optimizadas</li>
-                            <li><span>✦</span> Métricas de retención elevadas en canales de tráfico</li>
-                        </ul>
-                        <div class="card-actions">
-                            <a href="#contact" class="btn btn-primary btn-magnetic"><span class="btn-text">Impulsar Tracción</span></a>
-                        </div>
-                    </div>
-
-                    <!-- Card 4: Client Training & Boardroom -->
-                    <div class="scroll-card" id="card-training">
-                        <div class="badge">Estación 04 // Maestría Operativa</div>
-                        <h2 class="card-title">Capacitación <span>& Acompañamiento</span></h2>
-                        <p class="card-desc">Entregamos la llave maestra. Capacitamos exhaustivamente a tu equipo en el uso de las soluciones implementadas para garantizar la total independencia operativa y el retorno de inversión.</p>
-                        <ul class="card-specs">
-                            <li><span>✦</span> Transferencia completa de conocimientos y manuales</li>
-                            <li><span>✦</span> Monitoreo del retorno de inversión y optimizaciones</li>
-                            <li><span>✦</span> Soporte continuo como socios tecnológicos de confianza</li>
-                        </ul>
-                        <div class="card-actions">
-                            <a href="#contact" class="btn btn-primary btn-magnetic"><span class="btn-text">Iniciar Ecosistema</span></a>
-                        </div>
-                    </div>
-                </div>
-            </div> <!-- closes .scene-wrapper -->
-        </div> <!-- closes .scroll-container -->
-
-            <!-- Nuestros Proyectos (Interactive Carousel) -->
-            <section id="projects" class="projects">
-                <div class="container-fluid">
-                    <h2 class="section-title">Nuestros <span>Proyectos</span></h2>
-                    <div class="carousel-wrapper">
-                        <div class="carousel-track">
-
-                            <div class="carousel-item" data-title="Dashboard Analytics"
-                                data-image="https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=800"
-                                data-link="#analytics">
-                                <img src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=800"
-                                    alt="Dashboard Analytics">
-                                <div class="carousel-info">
-                                    <span class="tag">Desarrollo Web</span>
-                                    <h3>Dashboard Analytics</h3>
-                                </div>
-                            </div>
-
-                            <div class="carousel-item" data-title="Campaña Tracción Viral"
-                                data-image="https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&q=80&w=800"
-                                data-link="#viral">
-                                <img src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&q=80&w=800"
-                                    alt="Campaña Tracción Viral">
-                                <div class="carousel-info">
-                                    <span class="tag">Marketing Content</span>
-                                    <h3>Campaña Tracción Viral</h3>
-                                </div>
-                            </div>
-
-                            <div class="carousel-item" data-title="Sincronización Sheets x CRM"
-                                data-image="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=800"
-                                data-link="#crm">
-                                <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=800"
-                                    alt="Sincronización Sheets x CRM">
-                                <div class="carousel-info">
-                                    <span class="tag">Workspace Automation</span>
-                                    <h3>Sincronización Sheets x CRM</h3>
-                                </div>
-                            </div>
-
-                            <div class="carousel-item" data-title="E-commerce Alta Conversión"
-                                data-image="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800"
-                                data-link="#ecommerce">
-                                <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800"
-                                    alt="E-commerce Alta Conversión">
-                                <div class="carousel-info">
-                                    <span class="tag">Desarrollo Web</span>
-                                    <h3>E-commerce Alta Conversión</h3>
-                                </div>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Workflow / Timeline -->
-            <section id="workflow" class="workflow">
-                <div class="container">
-                    <h2 class="section-title">Metodología de <span>Transformación</span></h2>
-                    <div class="timeline">
-                        <svg class="timeline-path" viewBox="0 0 100 400" preserveAspectRatio="none">
-                            <path class="path-line" d="M 50 0 L 50 400" stroke="var(--mint)" stroke-width="2"
-                                fill="none" stroke-dasharray="8 8" />
-                            <path class="path-fill" d="M 50 0 L 50 400" stroke="var(--coral)" stroke-width="4"
-                                fill="none" />
-                        </svg>
-                        <div class="timeline-step">
-                            <div class="step-dot">1</div>
-                            <div class="step-content sculpted-glass-card">
-                                <div class="glass-inner">
-                                    <h3>Diagnóstico y Estrategia</h3>
-                                    <p>Identificamos cuellos de botella y trazamos la ruta hacia la máxima rentabilidad.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="timeline-step right">
-                            <div class="step-dot">2</div>
-                            <div class="step-content sculpted-glass-card">
-                                <div class="glass-inner">
-                                    <h3>Implementación Inmersiva</h3>
-                                    <p>Construimos la solución de la mano de tu equipo, garantizando que cada pieza se
-                                        adapte a sus procesos.</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="timeline-step">
-                            <div class="step-dot">3</div>
-                            <div class="step-content sculpted-glass-card">
-                                <div class="glass-inner">
-                                    <h3>Capacitación y Maestría</h3>
-                                    <p>No nos vamos. Te entrenamos para que domines la herramienta y las tasas de
-                                        conversión se disparen.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Contact Form -->
-            <section id="contact" class="contact">
-                <div class="container contact-container">
-                    <div class="contact-info">
-                        <h2>Inicia tu <span>Evolución</span></h2>
-                        <p>Agenda una llamada de diagnóstico. Hablemos de procesos, rentabilidad y cómo llevar tu
-                            operación al siguiente nivel.</p>
-                        <ul class="contact-list">
-                            <li><span class="icon">✉</span> hola@solemrj.com</li>
-                            <li><span class="icon">☎</span> +52 123 456 7890</li>
-                        </ul>
-                    </div>
-                    <div class="contact-form-wrapper sculpted-glass-card">
-                        <div class="glass-inner">
-                            <form id="discovery-form" class="discovery-form">
-                                <div class="form-group">
-                                    <input type="text" id="name" required placeholder=" ">
-                                    <label for="name">Nombre Completo</label>
-                                </div>
-                                <div class="form-group">
-                                    <input type="email" id="email" required placeholder=" ">
-                                    <label for="email">Correo Electrónico</label>
-                                </div>
-                                <div class="form-group">
-                                    <textarea id="message" rows="4" required placeholder=" "></textarea>
-                                    <label for="message">¿Qué cuello de botella quieres resolver?</label>
-                                </div>
-                                <button type="submit" class="btn btn-primary btn-magnetic submit-btn">
-                                    <span id="btn-text-submit" class="btn-text">Agendar Llamada</span>
-                                    <div class="spinner"></div>
-                                </button>
-                                <div class="form-success">¡Mensaje enviado con éxito! Nos pondremos en contacto pronto.
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Modal / Lightbox -->
-            <div id="project-modal" class="modal-overlay">
-                <div class="modal-content sculpted-glass-card">
-                    <div class="glass-inner">
-                        <button class="modal-close" id="modal-close-btn">&times;</button>
-                        <div class="modal-body">
-                            <div class="modal-media" id="modal-media-container">
-                                <!-- Image or Video injected here -->
-                            </div>
-                            <div class="modal-details">
-                                <h3 id="modal-title">Project Title</h3>
-                                <a href="#" id="modal-link" class="btn btn-primary btn-magnetic"><span
-                                        class="btn-text">Ver Proyecto</span></a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+  <!-- SECCIONES TRADICIONALES DEBAJO DEL VIAJE 3D -->
+  
+  <!-- SECCIÓN PROYECTOS (Grid Premium de Casos de Estudio) -->
+  <section id="sec-projects" class="traditional-section">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-subtitle">Casos de Éxito</span>
+        <h2 class="section-title">Nuestros Proyectos</h2>
+        <div class="section-divider"></div>
+      </div>
+      
+      <div class="projects-grid">
+        <!-- Tarjeta Proyecto 1 -->
+        <div class="project-card sculpted-glass">
+          <div class="project-img-placeholder" style="background: linear-gradient(135deg, #7f00ff, #00f2fe);">
+            <div class="project-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             </div>
-
-            <!-- Convergence Theme Modal -->
-            <div id="convergence-modal" class="modal-overlay">
-                <div class="modal-content sculpted-glass-card convergence-modal-content"
-                    style="max-width: 600px; text-align: center;">
-                    <div class="glass-inner">
-                        <button class="modal-close" id="convergence-close-btn">&times;</button>
-                        <div class="modal-body">
-                            <h3 style="font-size: 2.5rem; color: #fff; margin-bottom: 1rem;">Convergencia
-                                <span>Tecnológica</span></h3>
-                            <p style="font-size: 1.1rem; margin-bottom: 2rem;">Más que código y contenido, dominamos la
-                                convergencia tecnológica. Elige tu experiencia.</p>
-                            <div class="palette-swatches"
-                                style="display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap;">
-                                <button class="swatch active" data-theme="plum-tech"
-                                    style="background: linear-gradient(135deg, #000010, #544658, #CBB8C1);" title="Plum-Tech">
-                                </button>
-                                <button class="swatch" data-theme="cyber-mint"
-                                    style="background: linear-gradient(135deg, #0B0B0C, #4A4A4A, #00FF87);" title="Cyber-Mint">
-                                </button>
-                                <button class="swatch" data-theme="earth-tones"
-                                    style="background: linear-gradient(135deg, #5E3023, #C08552, #F3E9DC);" title="Earth Tones">
-                                </button>
-                                <button class="swatch" data-theme="sunset-vibes"
-                                    style="background: linear-gradient(135deg, #4F000B, #CE4257, #FF9B54);" title="Sunset Vibes">
-                                </button>
-                                <button class="swatch" data-theme="mono-red"
-                                    style="background: linear-gradient(135deg, #0B090A, #BA181B, #FFFFFF);" title="Mono Red">
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <footer>
-                <div class="container footer-content">
-                    <div class="logo">Solem<span class="mint-accent">RJ</span></div>
-                    <p>&copy; <span id="year"></span> Solem RJ. Empoderamiento Tecnológico.</p>
-                </div>
-            </footer>
+          </div>
+          <div class="project-info">
+            <span class="project-tag">Web & IA</span>
+            <h3>E-Commerce Cognitivo Inteligente</h3>
+            <p>Plataforma de comercio con motor de recomendación neuronal y agente de ventas autónomo conversacional, mejorando la conversión un 34%.</p>
+          </div>
         </div>
-    </main>
 
-    <!-- Dependencies -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/animejs/dist/bundles/anime.umd.min.js"></script>
-    <!-- Custom Script -->
-    <script type="module" src="script.js"></script>
+        <!-- Tarjeta Proyecto 2 -->
+        <div class="project-card sculpted-glass">
+          <div class="project-img-placeholder" style="background: linear-gradient(135deg, #00f2fe, #4facfe);">
+            <div class="project-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+          </div>
+          <div class="project-info">
+            <span class="project-tag">Automatización</span>
+            <h3>ERP Ecosistema Google a Medida</h3>
+            <p>Sincronización masiva de inventarios, reportes automatizados en Sheets y envíos masivos por Gmail conectados por APIs a CRM externo.</p>
+          </div>
+        </div>
+
+        <!-- Tarjeta Proyecto 3 -->
+        <div class="project-card sculpted-glass">
+          <div class="project-img-placeholder" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+            <div class="project-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </div>
+          </div>
+          <div class="project-info">
+            <span class="project-tag">Marketing</span>
+            <h3>Embudos de Tracción Viral Orgánica</h3>
+            <p>Estrategia y producción in-house de video micro-contenido de alto valor que generó más de 2M de impresiones y +12,000 leads calificados.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECCIÓN METODOLOGÍA (Modular y Explicativa) -->
+  <section id="sec-methodology" class="traditional-section">
+    <div class="section-container">
+      <div class="section-header">
+        <span class="section-subtitle">El Proceso SolemRJ</span>
+        <h2 class="section-title">Metodología de Alto Rendimiento</h2>
+        <div class="section-divider"></div>
+      </div>
+      
+      <div class="methodology-steps">
+        <!-- Paso 1 -->
+        <div class="methodology-step sculpted-glass">
+          <div class="step-num">01</div>
+          <h3>Entendimiento & Diagnóstico</h3>
+          <p>Analizamos a fondo tu negocio, identificando cuellos de botella operativos y oportunidades de optimización digital o automatización.</p>
+        </div>
+
+        <!-- Paso 2 -->
+        <div class="methodology-step sculpted-glass">
+          <div class="step-num">02</div>
+          <h3>Arquitectura & Desarrollo</h3>
+          <p>Construimos las soluciones de software, integraciones de IA y automatizaciones necesarias con tecnologías modernas y ultra-rápidas.</p>
+        </div>
+
+        <!-- Paso 3 -->
+        <div class="methodology-step sculpted-glass">
+          <div class="step-num">03</div>
+          <h3>Capacitación & Entrega</h3>
+          <p>Transferimos el control a tu equipo. Entregamos manuales interactivos y realizamos capacitaciones dinámicas para una independencia absoluta.</p>
+        </div>
+
+        <!-- Paso 4 -->
+        <div class="methodology-step sculpted-glass">
+          <div class="step-num">04</div>
+          <h3>Medición & Optimización</h3>
+          <p>Medimos el impacto en rentabilidad y horas ahorradas, optimizando de forma continua para asegurar que la inversión rinda al máximo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECCIÓN CONTACTO -->
+  <section id="sec-contact" class="traditional-section">
+    <div class="section-container">
+      <div class="contact-card sculpted-glass">
+        <div class="contact-header">
+          <span class="section-subtitle">Aliados de Crecimiento</span>
+          <h2>¿Listo para la transformación?</h2>
+          <p>Hablemos sobre tu proyecto y descubramos cómo podemos ayudarte a automatizar, escalar y vender más.</p>
+        </div>
+        <form class="contact-form" onsubmit="event.preventDefault(); alert('¡Gracias por tu interés! Nos comunicaremos contigo a la brevedad.');">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="name">Nombre Completo</label>
+              <input type="text" id="name" placeholder="Tu nombre" required>
+            </div>
+            <div class="form-group">
+              <label for="email">Correo Electrónico</label>
+              <input type="email" id="email" placeholder="tu@correo.com" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="message">Detalles del Proyecto</label>
+            <textarea id="message" rows="4" placeholder="Cuéntanos un poco sobre tu negocio y qué te gustaría automatizar o construir..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-submit">Enviar Propuesta de Proyecto</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer Simplificado -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-brand">
+        <a href="#sec-hero" class="nav-logo">Solem<span>RJ</span></a>
+        <p>Tu infraestructura digital inteligente.</p>
+      </div>
+      <div class="footer-copy">
+        &copy; 2026 SolemRJ. Todos los derechos reservados. Diseñado para la máxima velocidad y rentabilidad.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Dependencias desde CDN -->
+  <!-- GSAP y ScrollTrigger -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <!-- Three.js Core -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Script principal -->
+  <script src="script.js"></script>
 </body>
-
 </html>
