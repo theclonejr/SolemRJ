@@ -11,7 +11,10 @@ class QuantumEngine {
     this.renderer        = null;
     this.clock           = new THREE.Clock();
 
-    this.PARTICLE_COUNT  = 30000;
+    // Detección de capacidad del dispositivo — ajusta la carga de GPU
+    const _isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const _isTablet = !_isMobile && window.innerWidth <= 1024;
+    this.PARTICLE_COUNT  = _isMobile ? 12000 : _isTablet ? 20000 : 30000;
     this.geometry        = null;
     this.material        = null;
     this.points          = null;
@@ -41,14 +44,18 @@ class QuantumEngine {
 
     // Control de scroll — DOBLE SUAVIZADO
     this.scrollObj        = { progress: 0.0 };
-    this.smoothedProgress = 0.0;   // ← Lerp secundario en rAF
+    this.smoothedProgress = 0.0;
     this.activeStationIdx = 0;
-    this.prevStationIdx   = 0;
     this.currentTab       = 'training';
 
     // Carrusel Horizontal (Estación 4)
     this.carouselIndex    = 0;
     this.carouselLocked   = false;
+    this._noCarouselReset = false; // Guardia anti-recursión
+
+    // Limitador de frame rate para móvil (30 FPS) — ahorra CPU/GPU en gama baja
+    this._lastFrame   = 0;
+    this._frameLimit  = _isMobile ? 1000 / 30 : 0; // 0 = ilimitado en desktop
 
     // Mouse
     this.mouse       = new THREE.Vector2(9999, 9999);
@@ -415,6 +422,14 @@ class QuantumEngine {
   // ====================================================================
   animate() {
     requestAnimationFrame(() => this.animate());
+
+    // Limitador de FPS para móviles: 30fps cap para reducir carga de GPU
+    if (this._frameLimit > 0) {
+      const now = performance.now();
+      if (now - this._lastFrame < this._frameLimit) return;
+      this._lastFrame = now;
+    }
+
     const elapsed = this.clock.getElapsedTime();
 
     // Lerp secundario: suaviza cualquier salto residual que supere el scrub de GSAP
@@ -617,18 +632,28 @@ class QuantumEngine {
     else if (p < 0.90) activeIdx = 4;
     else               activeIdx = 5;
 
-    // Reset del carrusel según la dirección de llegada a Estación 4
-    if (activeIdx === 4 && this.prevStationIdx !== 4) {
-      this.goToCarouselCard(this.prevStationIdx < 4 ? 0 : 2);
-    }
-    this.prevStationIdx   = this.activeStationIdx;
+    const prev = this.activeStationIdx; // Snapshot ANTES de actualizar
     this.activeStationIdx = activeIdx;
 
     document.querySelectorAll('.station-slide').forEach((slide, idx) => {
       slide.classList.toggle('active-slide', idx === activeIdx);
     });
 
-    const tabNames = ['training', 'projects', 'methodology'];
+    // Carrusel reset al entrar a Estación 4 — guardia de re-entrada para prevenir
+    // la recursión infinita: updateActiveSlide → goToCarouselCard → updateActiveSlide
+    if (activeIdx === 4 && prev !== 4 && !this._noCarouselReset) {
+      this._noCarouselReset = true;
+      this.goToCarouselCard(prev < 4 ? 0 : 2);
+      this._noCarouselReset = false;
+    }
+
+    this.refreshNavHighlight();
+  }
+
+  // Actualiza solo el highlight del nav — NO llama a updateActiveSlide ni goToCarouselCard
+  refreshNavHighlight() {
+    const activeIdx = this.activeStationIdx;
+    const tabNames  = ['training', 'projects', 'methodology'];
     document.querySelectorAll('.nav-link, .nav-cta').forEach(link => {
       const idx = parseInt(link.getAttribute('data-index'));
       if (idx === activeIdx) {
@@ -728,10 +753,10 @@ class QuantumEngine {
       c.classList.toggle('active', i === this.carouselIndex);
     });
 
-    // Sincronizar tab y nav
+    // Sincronizar tab — llama refreshNavHighlight (NO updateActiveSlide) para romper la recursión
     const tabNames = ['training', 'projects', 'methodology'];
     this.currentTab = tabNames[this.carouselIndex];
-    this.updateActiveSlide(this.scrollObj.progress);
+    this.refreshNavHighlight();
   }
 
   // ====================================================================
