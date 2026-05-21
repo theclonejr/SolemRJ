@@ -1,22 +1,22 @@
 /* ======================================================================
-   SISTEMA DE DISEÑO Y COLOR CÓSMICO - SOLEMRJ
+   SISTEMA DE DISEÑO Y COLOR CÓSMICO - SOLEMRJ v2.0
    ====================================================================== */
 
 :root {
   --bg-color: #000000;
   --bg-rgb: 0, 0, 0;
   
-  --primary-color: #00F2FE; /* Cian Cuántico */
+  --primary-color: #00F2FE;
   --primary-rgb: 0, 242, 254;
-  --primary-glow: rgba(0, 242, 254, 0.4);
+  --primary-glow: rgba(0, 242, 254, 0.45);
   
-  --secondary-color: #7F00FF; /* Violeta Cibernético */
+  --secondary-color: #7F00FF;
   --secondary-rgb: 127, 0, 255;
-  --secondary-glow: rgba(127, 0, 255, 0.4);
+  --secondary-glow: rgba(127, 0, 255, 0.45);
   
-  --accent-color: #FF1493; /* Fucsia Cósmico */
-  --accent-glow: rgba(255, 20, 147, 0.4);
-  --gold-color: #FFD700; /* Polvo Estelar Dorado */
+  --accent-color: #FF1493;
+  --accent-glow: rgba(255, 20, 147, 0.45);
+  --gold-color: #FFD700;
   
   --text-color: #F1F5F9;
   --text-muted: #94A3B8;
@@ -29,7 +29,7 @@
 }
 
 /* ======================================================================
-   RESET GLOBAL Y SEGURIDAD RESPONSIVE (ANTI-ROTURA)
+   RESET GLOBAL — SIN overflow:hidden QUE CONGELE EL SCROLL
    ====================================================================== */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -38,53 +38,49 @@
   outline: none !important;
 }
 
-html, body {
+html {
+  background-color: var(--bg-color);
+  width: 100%;
+  /* NO overflow-x/y hidden aquí: GSAP necesita el scroll nativo */
+  overflow-x: hidden;
+}
+
+body {
   background-color: var(--bg-color);
   color: var(--text-color);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   width: 100%;
-  height: 100%;
-  max-width: 100% !important;
-  overflow-x: hidden !important;
   margin: 0;
   padding: 0;
-  border: none !important;
-}
-
-body.scroll-locked {
-  overflow: hidden !important;
-  height: 100vh !important;
-  touch-action: none !important;
+  /* Scroll horizontal bloqueado, vertical LIBRE para GSAP ScrollTrigger */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* Scrollbar Personalizado Cyberpunk */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: var(--bg-color);
-}
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-color); }
 ::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, var(--secondary-color), var(--primary-color));
   border-radius: 3px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-color);
-}
+::-webkit-scrollbar-thumb:hover { background: var(--primary-color); }
 
-/* Escena WebGL Principal Fija */
+/* ======================================================================
+   CANVAS WEBGL — FIJO GLOBAL, DEBAJO DE TODO EL DOM
+   pointer-events: none es CRÍTICO para que los clics/scroll pasen al DOM
+   ====================================================================== */
 #webgl-scene {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw !important;
-  height: 100vh !important;
-  z-index: 1;
-  pointer-events: none;
-  background-color: transparent;
-  border: none !important;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;           /* Debajo de nav (z:100) y tarjetas (z:10) */
+  pointer-events: none; /* El canvas NUNCA intercepta gestos */
+  display: block;
 }
 
 /* ======================================================================
@@ -97,18 +93,18 @@ body.scroll-locked {
   width: 100%;
   padding: 1.25rem 0;
   z-index: 100;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(0, 0, 0, 0.6);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(0,0,0,0.6);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   transition: var(--transition-smooth);
 }
 
 .navbar.scrolled {
-  padding: 0.8rem 0;
-  background: rgba(0, 0, 0, 0.8);
-  border-bottom: 1px solid rgba(0, 242, 254, 0.15);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  padding: 0.75rem 0;
+  background: rgba(0,0,0,0.85);
+  border-bottom-color: rgba(0,242,254,0.18);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
 }
 
 .nav-container {
@@ -150,32 +146,27 @@ body.scroll-locked {
   transition: var(--transition-smooth);
   position: relative;
   padding: 0.5rem 0;
+  cursor: pointer;
 }
 
 .nav-link::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 0;
-  height: 2px;
+  bottom: 0; left: 0;
+  width: 0; height: 2px;
   background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
   transition: var(--transition-smooth);
   border-radius: 2px;
 }
 
-.nav-link:hover, .nav-link.active {
-  color: var(--text-color);
-  text-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
-}
-
-.nav-link:hover::after, .nav-link.active::after {
-  width: 100%;
-}
+.nav-link:hover,
+.nav-link.active { color: var(--text-color); text-shadow: 0 0 10px rgba(0,242,254,0.3); }
+.nav-link:hover::after,
+.nav-link.active::after { width: 100%; }
 
 .nav-cta {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: #000000;
+  color: #000;
   font-weight: 600;
   font-size: 0.9rem;
   padding: 0.7rem 1.4rem;
@@ -184,12 +175,14 @@ body.scroll-locked {
   box-shadow: 0 4px 15px var(--primary-glow);
   transition: var(--transition-bounce);
   border: 1px solid transparent;
+  cursor: pointer;
 }
 
-.nav-cta:hover, .nav-cta.active {
+.nav-cta:hover,
+.nav-cta.active {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px var(--primary-glow), 0 0 15px var(--secondary-glow);
-  color: #ffffff;
+  color: #fff;
   background: transparent;
   border-color: var(--primary-color);
 }
@@ -216,44 +209,41 @@ body.scroll-locked {
 }
 
 /* ======================================================================
-   ESTRUCTURA DE VIAJE SCROLL (PINNED TIMELINE)
+   ESTRUCTURA DEL VIAJE — journey-wrapper es el SCROLL TRACK (500vh)
+   scroll-container se PINEA en la ventana mientras el wrapper hace scroll
    ====================================================================== */
 .journey-wrapper {
   position: relative;
   width: 100%;
-  height: 500vh; /* 5 intervalos de scroll para 6 estaciones (0, 0.2, 0.4, 0.6, 0.8, 1.0) */
-  z-index: 10;
+  height: 500vh; /* Pista de scroll real: 5 × 100vh */
+  z-index: 2;
 }
 
 .scroll-container {
   position: relative;
   width: 100%;
   height: 100vh;
-  overflow: hidden;
+  /* Sin overflow:hidden — GSAP usa pinSpacing para contener el contenido */
 }
 
 .immersive-content-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
+  pointer-events: none; /* Los hijos activos deben declarar pointer-events: all */
 }
 
 .station-slide {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   display: flex;
   align-items: center;
   padding: 0 clamp(1.5rem, 6vw, 10vw);
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.6s ease, visibility 0.6s ease;
+  transition: opacity 0.55s ease, visibility 0.55s ease;
 }
 
 .station-slide.active-slide {
@@ -263,21 +253,13 @@ body.scroll-locked {
 }
 
 /* ======================================================================
-   POSICIONAMIENTO ASIMÉTRICO (DESKTOP / MOBILE-FIRST)
+   POSICIONAMIENTO ASIMÉTRICO
    ====================================================================== */
-.left-card {
-  margin-right: auto;
-  margin-left: 0;
-}
+.left-card  { margin-right: auto; margin-left: 0; }
+.right-card { margin-left: auto;  margin-right: 0; }
 
-.right-card {
-  margin-left: auto;
-  margin-right: 0;
-}
-
-/* Contenido flotante específico para el Hero */
 .hero-floating-content {
-  width: clamp(300px, 35vw, 480px);
+  width: clamp(300px, 35vw, 500px);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -285,41 +267,40 @@ body.scroll-locked {
 }
 
 /* ======================================================================
-   DISEÑO SCULPTED-GLASSMORPHISM (SIN GRID NI CAJAS GRISES)
+   SCULPTED GLASSMORPHISM
    ====================================================================== */
 .scroll-card {
-  background: rgba(5, 5, 10, 0.4);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(5,5,12,0.42);
+  backdrop-filter: blur(22px) saturate(190%);
+  -webkit-backdrop-filter: blur(22px) saturate(190%);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 24px;
   padding: clamp(1.2rem, 3vh, 2.2rem);
   width: 100%;
-  max-width: clamp(310px, 38vw, 450px);
+  max-width: clamp(310px, 38vw, 460px);
   position: relative;
-  transition: border-color 0.5s ease, box-shadow 0.5s ease;
   overflow: hidden;
-  max-height: 85vh; /* Evita desbordamiento en alturas pequeñas */
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  box-shadow: 
-    0 20px 50px rgba(0, 0, 0, 0.8),
-    inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 20px 50px rgba(0,0,0,0.85),
+    inset 0 1px 1px rgba(255,255,255,0.1);
+  transition: border-color 0.5s ease, box-shadow 0.5s ease;
 }
 
-/* Bisel refractivo de color cuántico mediante pseudoelemento */
+/* Bisel refractivo */
 .scroll-card::before {
   content: '';
   position: absolute;
   inset: -1px;
   border-radius: 24px;
   padding: 1.2px;
-  background: linear-gradient(
-    135deg, 
-    rgba(255, 255, 255, 0.2) 0%, 
-    rgba(255, 255, 255, 0.02) 40%, 
-    var(--primary-color) 70%, 
+  background: linear-gradient(135deg,
+    rgba(255,255,255,0.22) 0%,
+    rgba(255,255,255,0.02) 40%,
+    var(--primary-color) 70%,
     var(--accent-color) 100%
   );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -330,15 +311,15 @@ body.scroll-locked {
 }
 
 .scroll-card:hover {
-  border-color: rgba(0, 242, 254, 0.25);
-  box-shadow: 
-    0 30px 60px rgba(0, 0, 0, 0.9),
-    0 0 25px rgba(0, 242, 254, 0.08),
-    inset 0 1px 2px rgba(255, 255, 255, 0.2);
+  border-color: rgba(0,242,254,0.28);
+  box-shadow:
+    0 30px 60px rgba(0,0,0,0.9),
+    0 0 28px rgba(0,242,254,0.1),
+    inset 0 1px 2px rgba(255,255,255,0.22);
 }
 
 /* ======================================================================
-   ELEMENTOS DE TEXTO E INDICE CÓSMICO
+   TIPOGRAFÍA E ÍNDICE CÓSMICO
    ====================================================================== */
 .station-badge {
   display: inline-block;
@@ -349,19 +330,19 @@ body.scroll-locked {
   text-transform: uppercase;
   letter-spacing: 2px;
   color: var(--primary-color);
-  background: rgba(0, 242, 254, 0.08);
-  border: 1px solid rgba(0, 242, 254, 0.2);
+  background: rgba(0,242,254,0.08);
+  border: 1px solid rgba(0,242,254,0.2);
   padding: 0.35rem 0.85rem;
   border-radius: 50px;
   margin-bottom: clamp(0.6rem, 1.8vh, 1rem);
-  text-shadow: 0 0 8px rgba(0, 242, 254, 0.2);
+  text-shadow: 0 0 8px rgba(0,242,254,0.22);
 }
 
 .hero-title {
   font-family: var(--font-title);
-  font-size: clamp(1.8rem, 4.5vw, 3.4rem);
+  font-size: clamp(1.8rem, 4.5vw, 3.5rem);
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.12;
   letter-spacing: -1.5px;
   margin-bottom: 1rem;
 }
@@ -376,29 +357,28 @@ body.scroll-locked {
 }
 
 .text-gradient {
-  background: linear-gradient(135deg, #ffffff 40%, #c7d2fe 75%, var(--primary-color) 100%);
+  background: linear-gradient(135deg, #ffffff 35%, #c7d2fe 72%, var(--primary-color) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .hero-text {
   font-size: clamp(0.85rem, 1.6vh, 1.05rem);
-  line-height: 1.6;
+  line-height: 1.65;
   color: var(--text-muted);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.6rem;
 }
 
 .card-text {
   font-size: clamp(0.8rem, 1.5vh, 0.95rem);
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--text-muted);
   margin-bottom: clamp(0.6rem, 1.8vh, 1.1rem);
 }
 
-/* Listas minimalistas */
 .card-bullets {
   list-style: none;
-  margin-bottom: clamp(0.8rem, 2vh, 1.2rem);
+  margin-bottom: clamp(0.8rem, 2vh, 1.3rem);
   display: flex;
   flex-direction: column;
   gap: clamp(0.35rem, 0.8vh, 0.55rem);
@@ -421,10 +401,10 @@ body.scroll-locked {
   filter: drop-shadow(0 0 4px var(--primary-glow));
 }
 
-/* Botones de control del viaje */
 .hero-actions, .card-actions {
   display: flex;
   gap: 0.8rem;
+  flex-wrap: wrap;
 }
 
 .btn {
@@ -444,14 +424,14 @@ body.scroll-locked {
 
 .btn-primary {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: #000000;
+  color: #000;
   box-shadow: 0 4px 15px var(--primary-glow);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px var(--primary-glow), 0 0 15px var(--secondary-glow);
-  color: #ffffff;
+  color: #fff;
   background: transparent;
   border-color: var(--primary-color);
 }
@@ -460,39 +440,37 @@ body.scroll-locked {
   border: 1px solid var(--primary-color) !important;
   color: var(--primary-color) !important;
   background: transparent;
-  box-shadow: 0 0 12px var(--primary-glow);
+  box-shadow: 0 0 14px var(--primary-glow);
 }
 
 .btn-hero-primary:hover {
   background: var(--primary-color) !important;
-  color: #000000 !important;
-  box-shadow: 0 0 20px var(--primary-color) !important;
+  color: #000 !important;
+  box-shadow: 0 0 22px var(--primary-color) !important;
   transform: translateY(-2px);
 }
 
 .btn-hero-secondary {
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255,255,255,0.22) !important;
   color: var(--text-color) !important;
   background: transparent;
 }
 
 .btn-hero-secondary:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 255, 255, 0.4) !important;
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.42) !important;
   transform: translateY(-2px);
 }
 
 /* ======================================================================
    DASHBOARD INTEGRADO (ESTACIÓN 4)
    ====================================================================== */
-.dashboard-card {
-  max-width: clamp(320px, 48vw, 550px);
-}
+.dashboard-card { max-width: clamp(320px, 48vw, 560px); }
 
 .dashboard-tabs {
   display: flex;
   gap: 0.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
   padding-bottom: 0.8rem;
   margin-bottom: clamp(0.8rem, 2vh, 1.2rem);
 }
@@ -510,26 +488,22 @@ body.scroll-locked {
   transition: var(--transition-smooth);
 }
 
-.tab-btn:hover {
-  color: var(--text-color);
-  background: rgba(255, 255, 255, 0.04);
-}
-
+.tab-btn:hover { color: var(--text-color); background: rgba(255,255,255,0.04); }
 .tab-btn.active {
   color: var(--primary-color);
-  background: rgba(0, 242, 254, 0.08);
-  text-shadow: 0 0 8px rgba(0, 242, 254, 0.15);
+  background: rgba(0,242,254,0.09);
+  text-shadow: 0 0 8px rgba(0,242,254,0.18);
 }
 
 .dashboard-content-wrapper {
   position: relative;
-  min-height: 230px;
+  min-height: 220px;
 }
 
 .tab-pane {
   display: none;
   opacity: 0;
-  transform: translateX(15px);
+  transform: translateX(14px);
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
@@ -540,7 +514,7 @@ body.scroll-locked {
 }
 
 /* ======================================================================
-   ESTACIÓN 5: CONTACTO Y PIE DE PÁGINA (SCULPTED GLASS HEAVY)
+   ESTACIÓN 5: CONTACTO Y FOOTER
    ====================================================================== */
 .contact-wrapper {
   display: flex;
@@ -549,23 +523,23 @@ body.scroll-locked {
   align-items: center;
   width: 100%;
   height: 100vh;
-  padding: 85px 1.5rem 1.5rem 1.5rem; /* Respetar la altura de la navbar */
+  padding: 85px 1.5rem 1.5rem;
 }
 
 .sculpted-glass-heavy {
-  background: rgba(4, 4, 8, 0.35);
-  backdrop-filter: blur(30px) saturate(200%);
-  -webkit-backdrop-filter: blur(30px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(4,4,10,0.38);
+  backdrop-filter: blur(32px) saturate(210%);
+  -webkit-backdrop-filter: blur(32px) saturate(210%);
+  border: 1px solid rgba(255,255,255,0.12);
   border-radius: 28px;
   padding: clamp(1rem, 2.8vh, 2.2rem);
   width: 100%;
   max-width: 650px;
   margin: auto 0;
-  box-shadow: 
-    0 40px 80px rgba(0, 0, 0, 0.95),
-    0 0 40px rgba(0, 242, 254, 0.12),
-    inset 0 1px 2px rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 40px 80px rgba(0,0,0,0.95),
+    0 0 40px rgba(0,242,254,0.14),
+    inset 0 1px 2px rgba(255,255,255,0.22);
   position: relative;
 }
 
@@ -575,11 +549,10 @@ body.scroll-locked {
   inset: -1px;
   border-radius: 28px;
   padding: 1.5px;
-  background: linear-gradient(
-    135deg, 
-    rgba(255, 255, 255, 0.35) 0%, 
-    rgba(255, 255, 255, 0.02) 40%, 
-    var(--primary-color) 70%, 
+  background: linear-gradient(135deg,
+    rgba(255,255,255,0.38) 0%,
+    rgba(255,255,255,0.02) 40%,
+    var(--primary-color) 70%,
     var(--accent-color) 100%
   );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -601,24 +574,21 @@ body.scroll-locked {
   gap: 1rem;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
+.form-group { display: flex; flex-direction: column; gap: 0.4rem; }
 
 .form-group label {
   font-family: var(--font-title);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.form-group input, .form-group textarea {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.form-group input,
+.form-group textarea {
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.1);
   border-radius: 12px;
   padding: 0.75rem 1rem;
   color: var(--text-color);
@@ -627,25 +597,21 @@ body.scroll-locked {
   transition: var(--transition-smooth);
 }
 
-.form-group input:focus, .form-group textarea:focus {
+.form-group input:focus,
+.form-group textarea:focus {
   border-color: var(--primary-color);
-  background: rgba(0, 242, 254, 0.03);
-  box-shadow: 0 0 15px rgba(0, 242, 254, 0.15);
+  background: rgba(0,242,254,0.04);
+  box-shadow: 0 0 16px rgba(0,242,254,0.18);
+  outline: none;
 }
 
-.btn-submit {
-  width: 100%;
-  padding: 0.8rem;
-  border-radius: 12px;
-  border: none;
-}
+.btn-submit { width: 100%; padding: 0.82rem; border-radius: 12px; border: none; }
 
-/* Pie de Página Premium Integrado */
 .footer {
   width: 100%;
   max-width: 1000px;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(255,255,255,0.05);
 }
 
 .footer-container {
@@ -656,32 +622,21 @@ body.scroll-locked {
   gap: 1rem;
 }
 
-.footer-brand p {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.footer-copy {
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
+.footer-brand p { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+.footer-copy    { font-size: 0.82rem; color: var(--text-muted); }
 
 /* ======================================================================
-   MEDIA QUERIES - RESPONSIVE DE QA (MOBILE-FIRST)
+   MEDIA QUERIES — MOBILE-FIRST
    ====================================================================== */
-
 @media (max-width: 1024px) {
   .nav-links {
     position: fixed;
-    top: 0;
-    right: -100%;
-    width: 280px;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.95);
-    backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    top: 0; right: -100%;
+    width: 280px; height: 100vh;
+    background: rgba(0,0,0,0.96);
+    backdrop-filter: blur(26px);
+    -webkit-backdrop-filter: blur(26px);
+    border-left: 1px solid rgba(255,255,255,0.08);
     flex-direction: column;
     justify-content: center;
     gap: 2.2rem;
@@ -689,26 +644,11 @@ body.scroll-locked {
     transition: var(--transition-smooth);
     padding: 2rem;
   }
+  .nav-links.open { right: 0; }
+  .menu-toggle { display: flex; }
+  .menu-toggle.open .bar:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+  .menu-toggle.open .bar:nth-child(2) { transform: translateY(-8px) rotate(-45deg); }
 
-  .nav-links.open {
-    right: 0;
-  }
-
-  .menu-toggle {
-    display: flex;
-  }
-
-  .menu-toggle.open .bar:nth-child(1) {
-    transform: translateY(8px) rotate(45deg);
-  }
-  .menu-toggle.open .bar:nth-child(2) {
-    transform: translateY(-8px) rotate(-45deg);
-  }
-  .menu-toggle.open .bar:nth-child(2) {
-    width: 100%;
-  }
-  
-  /* Apilado elástico vertical para todas las secciones */
   .station-slide {
     flex-direction: column;
     justify-content: flex-end;
@@ -716,15 +656,16 @@ body.scroll-locked {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
-  
-  .scroll-card, .hero-floating-content {
+
+  .scroll-card,
+  .hero-floating-content {
     max-width: 100%;
     width: 100%;
     margin: 0 !important;
   }
-  
+
   .scroll-card {
-    max-height: 52vh; /* Deja libre el 48vh superior para el objeto 3D */
+    max-height: 52vh;
     padding: 1.2rem;
   }
 
@@ -733,24 +674,15 @@ body.scroll-locked {
     justify-content: flex-end;
   }
 
-  .dashboard-content-wrapper {
-    min-height: 200px;
-  }
-  
-  /* Ajustes en formulario para pantallas pequeñas */
-  .contact-wrapper {
-    padding-top: 75px;
-  }
+  .dashboard-content-wrapper { min-height: 200px; }
+  .contact-wrapper { padding-top: 75px; }
 
   .sculpted-glass-heavy {
-    max-height: 60vh;
+    max-height: 62vh;
     padding: 1.2rem;
   }
 
-  .form-grid {
-    grid-template-columns: 1fr;
-    gap: 0.8rem;
-  }
+  .form-grid { grid-template-columns: 1fr; gap: 0.8rem; }
 
   .footer-container {
     flex-direction: column;
@@ -760,21 +692,9 @@ body.scroll-locked {
 }
 
 @media (max-width: 480px) {
-  .station-slide {
-    padding-bottom: 1rem;
-  }
-  .scroll-card {
-    max-height: 58vh;
-    padding: 1rem;
-  }
-  .hero-floating-content {
-    height: 58vh;
-  }
-  .dashboard-tabs {
-    gap: 0.2rem;
-  }
-  .tab-btn {
-    padding: 0.3rem 0.5rem;
-    font-size: 0.8rem;
-  }
+  .station-slide { padding-bottom: 1rem; }
+  .scroll-card { max-height: 58vh; padding: 1rem; }
+  .hero-floating-content { height: 58vh; }
+  .dashboard-tabs { gap: 0.2rem; }
+  .tab-btn { padding: 0.3rem 0.5rem; font-size: 0.78rem; }
 }
