@@ -237,7 +237,7 @@ body {
 .right-card { margin-left: auto;  margin-right: 0; }
 
 .hero-floating-content {
-  width: clamp(300px, 36vw, 520px);
+  width: clamp(320px, 42vw, 600px);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -253,9 +253,9 @@ body {
   /* Fondo casi invisible — el canvas WebGL domina el espacio */
   background: rgba(0, 0, 4, 0.14);
   border-radius: 3px;
-  padding: clamp(1.8rem, 4.5vh, 3rem) clamp(1.6rem, 3.5vw, 2.8rem);
+  padding: clamp(2rem, 5vh, 3.4rem) clamp(1.8rem, 4vw, 3.2rem);
   width: 100%;
-  max-width: clamp(310px, 40vw, 480px);
+  max-width: clamp(340px, 44vw, 540px);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -325,19 +325,19 @@ body {
 
 .hero-title {
   font-family: var(--font-title);
-  font-size: clamp(2rem, 5vw, 3.8rem);
+  font-size: clamp(2.6rem, 6.5vw, 5rem);
   font-weight: 700;
-  line-height: 1.1;
-  letter-spacing: -2px;
-  margin-bottom: 1.1rem;
+  line-height: 1.08;
+  letter-spacing: -2.5px;
+  margin-bottom: 1.2rem;
 }
 
 .card-title {
   font-family: var(--font-title);
-  font-size: clamp(1.5rem, 2.8vw, 2.2rem);
-  line-height: 1.2;
+  font-size: clamp(1.8rem, 3.4vw, 2.9rem);
+  line-height: 1.15;
   font-weight: 700;
-  margin-bottom: clamp(0.6rem, 1.8vh, 1rem);
+  margin-bottom: clamp(0.7rem, 2vh, 1.1rem);
   letter-spacing: -0.5px;
 }
 
@@ -348,18 +348,18 @@ body {
 }
 
 .hero-text {
-  font-size: clamp(0.9rem, 1.7vh, 1.08rem);
-  line-height: 1.7;
+  font-size: clamp(1rem, 2vh, 1.2rem);
+  line-height: 1.75;
   color: var(--muted);
-  margin-bottom: 1.8rem;
+  margin-bottom: 2rem;
   letter-spacing: 0.01em;
 }
 
 .card-text {
-  font-size: clamp(0.82rem, 1.5vh, 0.96rem);
-  line-height: 1.6;
+  font-size: clamp(0.9rem, 1.75vh, 1.08rem);
+  line-height: 1.68;
   color: var(--muted);
-  margin-bottom: clamp(0.8rem, 2vh, 1.2rem);
+  margin-bottom: clamp(0.9rem, 2.2vh, 1.35rem);
   letter-spacing: 0.01em;
 }
 
@@ -375,7 +375,7 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 0.65rem;
-  font-size: clamp(0.8rem, 1.4vh, 0.9rem);
+  font-size: clamp(0.88rem, 1.6vh, 1rem);
   color: var(--text);
   letter-spacing: 0.01em;
 }

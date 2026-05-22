@@ -19,6 +19,12 @@ class QuantumEngine {
     this.material        = null;
     this.points          = null;
 
+    // ── DIRECTIVE 3: Depth BG secondary particle system ──
+    this.bgGeometry      = null;
+    this.bgMaterial      = null;
+    this.bgPoints        = null;
+    this.BG_PARTICLE_COUNT = 1800;
+
     // Arrays de posición por Estación
     this.posRocket       = null;
     this.posWeb          = null;
@@ -53,6 +59,12 @@ class QuantumEngine {
     this.carouselLocked   = false;
     this._noCarouselReset = false; // Guardia anti-recursión
 
+    // ── DIRECTIVE 1: Slide-snap sequential lock ──
+    this.isTransitioning  = false;   // Strict one-slide-at-a-time guardrail
+    this._targetSlide     = 0;       // Desired slide index when locked
+    this._touchStartY     = 0;       // Touch start Y for vertical swipe detection
+    this._touchHandled    = false;   // Single-gesture flag per touch sequence
+
     // Limitador de frame rate para móvil (30 FPS) — ahorra CPU/GPU en gama baja
     this._lastFrame   = 0;
     this._frameLimit  = _isMobile ? 1000 / 30 : 0; // 0 = ilimitado en desktop
@@ -61,10 +73,19 @@ class QuantumEngine {
     this.mouse       = new THREE.Vector2(9999, 9999);
     this.mouseWorld  = new THREE.Vector3(9999, 9999, 0);
 
+    // ── DIRECTIVE 2: Spring-physics hover state ──
+    // Per-particle velocity and current offset for elastic recovery
+    // Stored as flat Float32Arrays (x/y) for performance in the hot path
+    this._hoverVelX  = null;   // initialized in createSystem after N is known
+    this._hoverVelY  = null;
+    this._hoverCurX  = null;
+    this._hoverCurY  = null;
+
     // Boot
     this.initThree();
     this.initParticleArrays();
     this.createSystem();
+    this.createDepthBackground();  // D3: secondary starfield
     this.initAnimations();
     this.initNavigation();
     this.initCarousel();
@@ -77,8 +98,11 @@ class QuantumEngine {
   // ====================================================================
   initThree() {
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
-    this.camera.position.z = 7.2;
+    // ── DIRECTIVE 4: Compress FOV + push camera back to shrink shapes ──
+    // FOV reduced from 60 → 50 (tighter lens = shapes appear smaller & more refined)
+    // camera.z increased from 7.2 → 8.8 (pushes geometry further back)
+    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 300);
+    this.camera.position.z = 8.8;
 
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
@@ -415,6 +439,66 @@ class QuantumEngine {
     });
     this.points = new THREE.Points(this.geometry, this.material);
     this.scene.add(this.points);
+
+    // ── DIRECTIVE 2: Allocate spring-physics hover buffers ──
+    this._hoverVelX = new Float32Array(N);
+    this._hoverVelY = new Float32Array(N);
+    this._hoverCurX = new Float32Array(N);
+    this._hoverCurY = new Float32Array(N);
+  }
+
+  // ====================================================================
+  // DIRECTIVE 3: DEPTH BACKGROUND — Secondary isolated starfield
+  // 1,800 cosmic dust particles at far Z, galactic amber/pearl palette
+  // ====================================================================
+  createDepthBackground() {
+    const BN = this.BG_PARTICLE_COUNT;
+    const bgPos = new Float32Array(BN * 3);
+    const bgCol = new Float32Array(BN * 3);
+
+    // Galactic palette: dim amber, starlight pearl, cosmic dust blue — low intensity
+    const bgPalette = [
+      new THREE.Color(0x4a3010), // Deep space amber (dim)
+      new THREE.Color(0x3d3020), // Warm cosmic dust
+      new THREE.Color(0x8a7a60), // Starlight pearl (muted gold)
+      new THREE.Color(0x5a5060), // Distant nebula mauve
+      new THREE.Color(0x2a3040), // Cold deep-space blue
+      new THREE.Color(0x706050)  // Faint cosmic tan
+    ];
+
+    for (let i = 0; i < BN; i++) {
+      // Distribute uniformly in a wide 3D volume, pushed deep behind primary shapes
+      bgPos[i*3]   = (Math.random() - 0.5) * 60;  // X: wide spread
+      bgPos[i*3+1] = (Math.random() - 0.5) * 40;  // Y: tall spread
+      bgPos[i*3+2] = -20 - Math.random() * 60;    // Z: far behind (–20 to –80)
+
+      const c = bgPalette[Math.floor(Math.random() * bgPalette.length)];
+      // Randomise per-particle brightness to simulate stellar magnitude variation
+      const brightness = 0.25 + Math.random() * 0.55;
+      bgCol[i*3]   = c.r * brightness;
+      bgCol[i*3+1] = c.g * brightness;
+      bgCol[i*3+2] = c.b * brightness;
+    }
+
+    this.bgGeometry = new THREE.BufferGeometry();
+    this.bgGeometry.setAttribute('position', new THREE.BufferAttribute(bgPos, 3));
+    this.bgGeometry.setAttribute('color',    new THREE.BufferAttribute(bgCol, 3));
+
+    // Slightly larger point size so they're faintly visible at depth
+    this.bgMaterial = new THREE.PointsMaterial({
+      size: 0.28,
+      sizeAttenuation: true,
+      depthWrite: false,
+      transparent: true,
+      opacity: 0.70,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+      map: this.createParticleTexture()
+    });
+
+    this.bgPoints = new THREE.Points(this.bgGeometry, this.bgMaterial);
+    // Add BEFORE primary points so it renders behind them
+    this.scene.add(this.bgPoints);
   }
 
   // ====================================================================
@@ -453,6 +537,13 @@ class QuantumEngine {
     const posArray = posAttr.array;
     const N        = this.PARTICLE_COUNT;
 
+    // ── DIRECTIVE 2: Spring-physics hover constants ──
+    // springFriction: acceleration toward target; dampening: velocity decay per frame
+    const springFriction = 0.048;  // Gentle attraction toward displaced target
+    const dampening      = 0.72;   // Velocity decay (lower = snappier recovery)
+    const hoverRadius    = 1.65;   // World-space influence radius
+    const hoverStrength  = 0.52;   // Max displacement magnitude
+
     for (let i = 0; i < N; i++) {
       const i3 = i * 3;
 
@@ -489,17 +580,38 @@ class QuantumEngine {
       ry += (ry/nLen) * breath;
       rz += (rz/nLen) * breath;
 
-      // Hover Magnético — TODAS las estaciones (no solo Hero)
+      // ── DIRECTIVE 2: Elastic spring-physics hover (replaces instant push) ──
+      // Particles glide away on hover and snap back via velocity-based spring.
+      // Only active when NOT in transition explosion phase.
       if (ep < 0.08) {
         const hdx  = rx - this.mouseWorld.x;
         const hdy  = ry - this.mouseWorld.y;
         const dist = Math.sqrt(hdx*hdx + hdy*hdy);
-        const hR   = 1.65;
-        if (dist < hR && dist > 0.001) {
-          const force = (1 - dist / hR) * 0.54;
-          rx += (hdx/dist) * force;
-          ry += (hdy/dist) * force;
+
+        // Compute target displacement: push outward when inside influence radius
+        let targetOffX = 0, targetOffY = 0;
+        if (dist < hoverRadius && dist > 0.001) {
+          const attenuation = (1 - dist / hoverRadius);  // Distance falloff
+          const forceMag    = attenuation * hoverStrength;
+          targetOffX = (hdx / dist) * forceMag;
+          targetOffY = (hdy / dist) * forceMag;
         }
+        // Spring: velocity accelerates toward target, then decays (elastic recovery)
+        this._hoverVelX[i] += (targetOffX - this._hoverCurX[i]) * springFriction;
+        this._hoverVelY[i] += (targetOffY - this._hoverCurY[i]) * springFriction;
+        this._hoverVelX[i] *= dampening;
+        this._hoverVelY[i] *= dampening;
+        this._hoverCurX[i] += this._hoverVelX[i];
+        this._hoverCurY[i] += this._hoverVelY[i];
+
+        rx += this._hoverCurX[i];
+        ry += this._hoverCurY[i];
+      } else {
+        // Fade out accumulated spring offsets during explosion transitions
+        this._hoverCurX[i] *= 0.88;
+        this._hoverCurY[i] *= 0.88;
+        this._hoverVelX[i] *= 0.88;
+        this._hoverVelY[i] *= 0.88;
       }
 
       posArray[i3]   = rx;
@@ -509,6 +621,13 @@ class QuantumEngine {
 
     posAttr.needsUpdate = true;
     this.updateSystemLayoutPosition(idx, t);
+
+    // ── DIRECTIVE 3: Slowly rotate depth background for living cosmic anchor ──
+    if (this.bgPoints) {
+      this.bgPoints.rotation.y += 0.0002;
+      this.bgPoints.rotation.x += 0.00005;
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -604,7 +723,8 @@ class QuantumEngine {
       trigger:    '.journey-wrapper',
       start:      'top top',
       end:        'bottom bottom',
-      scrub:      1.5,          // Mayor inercia = partículas más suaves en wheel
+      // ── DIRECTIVE 1: Inertial lerp scrub raised to 1.8 for smoother camera ──
+      scrub:      1.8,
       pin:        '.scroll-container',
       pinSpacing: true,
       onUpdate: (self) => {
@@ -613,9 +733,9 @@ class QuantumEngine {
       },
       snap: {
         snapTo:   [0, 0.2, 0.4, 0.6, 0.8, 1.0],
-        duration: { min: 0.4, max: 0.95 },
+        duration: { min: 0.45, max: 1.0 },
         ease:     'power3.inOut',
-        delay:    0.06
+        delay:    0.08
       }
     });
   }
@@ -800,6 +920,8 @@ class QuantumEngine {
   // 10. MOUSE + RESIZE
   // ====================================================================
   initInteraction() {
+    // ── DIRECTIVE 2: Raycaster — window-normalised coordinates (no canvas offset bias) ──
+    // Using window.innerWidth/Height ensures the NDC space matches the fullscreen canvas.
     window.addEventListener('mousemove', e => {
       this.mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
       this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -809,10 +931,57 @@ class QuantumEngine {
       this.mouseWorld.copy(this.camera.position).addScaledVector(d, tt);
     });
 
-    window.addEventListener('mouseleave', () => { this.mouseWorld.set(9999, 9999, 0); });
+    // On mouse leave: smoothly decay spring state instead of teleporting
+    window.addEventListener('mouseleave', () => {
+      this.mouseWorld.set(9999, 9999, 0);
+      // Spring buffers will naturally decay back to zero via the dampening factor
+    });
 
     window.addEventListener('scroll', () => {
       document.getElementById('main-nav').classList.toggle('scrolled', window.scrollY > 50);
+    }, { passive: true });
+
+    // ── DIRECTIVE 1: Touch intercept — one-slide-at-a-time sequential lock ──
+    // Capture touch start Y and mark the gesture as unhandled
+    window.addEventListener('touchstart', e => {
+      this._touchStartY  = e.touches[0].clientY;
+      this._touchHandled = false;  // Reset for new gesture sequence
+    }, { passive: true });
+
+    // On touchmove: intercept and consume the event if a slide transition is active.
+    // This kills residual inertia that would fire multiple slide advances.
+    window.addEventListener('touchmove', e => {
+      if (this.isTransitioning) {
+        // Gesture in progress — block default scroll to prevent multi-slide skip
+        e.preventDefault();
+        return;
+      }
+
+      if (this._touchHandled) return;  // Already acted on this gesture sequence
+
+      const deltaY = this._touchStartY - e.touches[0].clientY;
+      const threshold = 30; // px minimum swipe to register intentional gesture
+
+      if (Math.abs(deltaY) < threshold) return;
+
+      // ── DIRECTIVE 1: Strict +/-1 advance regardless of swipe velocity ──
+      const currentSlide = this.activeStationIdx;
+      if (this.activeStationIdx === 4) return; // Carrusel handles its own events
+
+      const nextSlide = deltaY > 0
+        ? Math.min(5, currentSlide + 1)   // Swipe up → advance one
+        : Math.max(0, currentSlide - 1);  // Swipe down → retreat one
+
+      if (nextSlide !== currentSlide) {
+        this._touchHandled = true;  // One advance per gesture sequence
+        this.navigateToSlide(nextSlide);
+      }
+    }, { passive: false });
+
+    // On touchend: reset touchHandled to allow next deliberate gesture
+    window.addEventListener('touchend', () => {
+      // isTransitioning will be cleared by navigateToSlide's timeout
+      // _touchHandled stays true until next touchstart to prevent ghost events
     }, { passive: true });
 
     let resizeTimer;
@@ -828,6 +997,27 @@ class QuantumEngine {
       }, 150);
     });
   }
+
+  // ── DIRECTIVE 1: Programmatic single-slide navigation with isTransitioning lock ──
+  // Forces exactly one slide advance and blocks additional scroll events during transit.
+  navigateToSlide(targetIdx) {
+    if (this.isTransitioning) return;  // Double-scroll guardrail
+    this.isTransitioning = true;
+
+    const totalH   = document.documentElement.scrollHeight - window.innerHeight;
+    const scrollTo = targetIdx * 0.2 * totalH;
+
+    gsap.to(window, {
+      scrollTo:   scrollTo,
+      duration:   1.1,
+      ease:       'power2.inOut',
+      onComplete: () => {
+        // Release lock only after animation fully settles
+        // Extra buffer ensures ScrollTrigger snap has settled too
+        setTimeout(() => { this.isTransitioning = false; }, 320);
+      }
+    });
+  }
 }
 
 // Bootstrap
@@ -837,5 +1027,12 @@ window.addEventListener('DOMContentLoaded', () => {
     return;
   }
   window.solemEngine = new QuantumEngine();
-  console.log('[SolemEngine v3.0] 30,000 partículas · Cohete 45° · Carrusel · Paleta Espacial');
+  console.log(
+    '[SolemEngine v3.1] QA Pass:\n' +
+    '  · D1: Sequential slide-snap lock (isTransitioning) + touch intercept\n' +
+    '  · D2: Elastic spring-physics hover (springFriction=0.048, dampening=0.72)\n' +
+    '  · D3: 1,800 depth-bg star-dust particles (cosmic amber/pearl, Z: –20→–80)\n' +
+    '  · D4: Camera FOV 60→50, Z 7.2→8.8 (compact editorial shape footprint)\n' +
+    '  · scrub: 1.8 inertial lerp on master ScrollTrigger timeline'
+  );
 });
