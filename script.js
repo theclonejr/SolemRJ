@@ -59,11 +59,17 @@ class QuantumEngine {
     this.carouselLocked   = false;
     this._noCarouselReset = false; // Guardia anti-recursión
 
-    // ── DIRECTIVE 1: Slide-snap sequential lock ──
-    this.isTransitioning  = false;   // Strict one-slide-at-a-time guardrail
-    this._targetSlide     = 0;       // Desired slide index when locked
+    // ── DIRECTIVE 1: Hard isAnimating global slide-lock ──
+    // isAnimating = true during ANY GSAP slide transition.
+    // ALL wheel and touch inputs are silently dropped while locked.
+    this.isAnimating      = false;   // Global animation state guard
     this._touchStartY     = 0;       // Touch start Y for vertical swipe detection
-    this._touchHandled    = false;   // Single-gesture flag per touch sequence
+    this._touchHandled    = false;   // Single-gesture flag — reset only on touchstart
+
+    // ── DIRECTIVE 3: Depth BG ping-pong oscillator state ──
+    // bgOscTime tracks accumulated time for the sine-wave bounce
+    this._bgOscTime       = 0;       // Elapsed oscillator time (seconds)
+    this.BG_X_LIMIT       = 4.0;     // World-space X boundary for the oscillation
 
     // Limitador de frame rate para móvil (30 FPS) — ahorra CPU/GPU en gama baja
     this._lastFrame   = 0;
@@ -622,10 +628,15 @@ class QuantumEngine {
     posAttr.needsUpdate = true;
     this.updateSystemLayoutPosition(idx, t);
 
-    // ── DIRECTIVE 3: Slowly rotate depth background for living cosmic anchor ──
+    // ── DIRECTIVE 3: Infinite ping-pong sine-wave oscillator for depth BG ──
+    // bgOscTime grows each frame by a fixed step, driving a sin() wave that
+    // bounces bgPoints.position.x between –BG_X_LIMIT and +BG_X_LIMIT.
+    // Period ≈ 40 s (2π / 0.157). Rotation adds slow cosmic drift on Y.
+    // This is ISOLATED to bgPoints — primary particle arrays are untouched.
     if (this.bgPoints) {
-      this.bgPoints.rotation.y += 0.0002;
-      this.bgPoints.rotation.x += 0.00005;
+      this._bgOscTime += 0.00157;  // ~40-second full oscillation period
+      this.bgPoints.position.x = Math.sin(this._bgOscTime) * this.BG_X_LIMIT;
+      this.bgPoints.rotation.y += 0.00015;  // slow Y-drift for cosmic parallax
     }
 
     this.renderer.render(this.scene, this.camera);
@@ -702,8 +713,11 @@ class QuantumEngine {
       const offsetsX = [2.5, -2.5, 2.5, -2.5, 2.5, 0.0];
       tX = offsetsX[idx] + (offsetsX[Math.min(5, idx+1)] - offsetsX[idx]) * t;
     } else {
-      const oY     = [1.4, 1.4, 1.4, 1.4, 1.4, 0.0];
-      const scales = [0.52, 0.52, 0.52, 0.52, 0.52, 0.62];
+      // ── DIRECTIVE 2: Mobile scale matrix — shapes are smaller companions ──
+      // oY raised to push geometry higher into the upper quadrant (more sky room for text).
+      // Scales reduced from 0.52 → 0.42 so typography dominates the lower 60% of viewport.
+      const oY     = [1.8, 1.8, 1.8, 1.8, 1.8, 0.0];
+      const scales = [0.42, 0.42, 0.42, 0.42, 0.42, 0.52];
       tY     = oY[idx]     + (oY[Math.min(5, idx+1)]     - oY[idx])     * t;
       tScale = scales[idx] + (scales[Math.min(5, idx+1)] - scales[idx]) * t;
     }
@@ -920,8 +934,7 @@ class QuantumEngine {
   // 10. MOUSE + RESIZE
   // ====================================================================
   initInteraction() {
-    // ── DIRECTIVE 2: Raycaster — window-normalised coordinates (no canvas offset bias) ──
-    // Using window.innerWidth/Height ensures the NDC space matches the fullscreen canvas.
+    // ── Mouse raycaster — window-normalised NDC, no canvas-offset bias ──
     window.addEventListener('mousemove', e => {
       this.mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
       this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -931,57 +944,102 @@ class QuantumEngine {
       this.mouseWorld.copy(this.camera.position).addScaledVector(d, tt);
     });
 
-    // On mouse leave: smoothly decay spring state instead of teleporting
     window.addEventListener('mouseleave', () => {
       this.mouseWorld.set(9999, 9999, 0);
-      // Spring buffers will naturally decay back to zero via the dampening factor
     });
 
     window.addEventListener('scroll', () => {
       document.getElementById('main-nav').classList.toggle('scrolled', window.scrollY > 50);
     }, { passive: true });
 
-    // ── DIRECTIVE 1: Touch intercept — one-slide-at-a-time sequential lock ──
-    // Capture touch start Y and mark the gesture as unhandled
+    // ====================================================================
+    // DIRECTIVE 1: ABSOLUTE SLIDE LOCKOUT — WHEEL
+    // Intercept ALL wheel events before the browser and ScrollTrigger see them.
+    // While isAnimating=true every wheel delta is silently consumed.
+    // While isAnimating=false: determine direction (+1/-1), lock, drive GSAP
+    // directly to the exact target scroll position, release lock on complete.
+    // The carousel at station 4 is handled separately below.
+    // ====================================================================
+    window.addEventListener('wheel', e => {
+      // Always prevent native scroll — we own the scroll position entirely
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      // ── Carousel hijack at station 4 ──
+      // Delegate to the carousel locker; if carousel is at its limit the
+      // wheel event falls through to the slide-navigation logic below.
+      if (this.activeStationIdx === 4) {
+        const down = e.deltaY > 0;
+        if (down && this.carouselIndex < 2) {
+          if (!this.carouselLocked) {
+            this.carouselLocked = true;
+            this.goToCarouselCard(this.carouselIndex + 1);
+            setTimeout(() => { this.carouselLocked = false; }, 860);
+          }
+          return; // Consumed by carousel — do NOT advance slide
+        } else if (!down && this.carouselIndex > 0) {
+          if (!this.carouselLocked) {
+            this.carouselLocked = true;
+            this.goToCarouselCard(this.carouselIndex - 1);
+            setTimeout(() => { this.carouselLocked = false; }, 860);
+          }
+          return; // Consumed by carousel
+        }
+        // else: carousel is at its boundary — fall through to slide advance
+      }
+
+      // ── Global lock: drop event entirely if a slide animation is running ──
+      if (this.isAnimating) return;
+
+      const dir = e.deltaY > 0 ? 1 : -1;
+      const next = Math.max(0, Math.min(5, this.activeStationIdx + dir));
+      if (next === this.activeStationIdx) return; // Already at boundary
+
+      this.navigateToSlide(next);
+    }, { passive: false, capture: true });
+
+    // ====================================================================
+    // DIRECTIVE 1: ABSOLUTE SLIDE LOCKOUT — TOUCH
+    // touchstart resets the per-gesture flag.
+    // touchmove: while isAnimating blocks all scroll (kills iOS inertia).
+    //            On first threshold crossing → lock + advance exactly ±1 slide.
+    // ====================================================================
     window.addEventListener('touchstart', e => {
       this._touchStartY  = e.touches[0].clientY;
-      this._touchHandled = false;  // Reset for new gesture sequence
+      this._touchHandled = false;
     }, { passive: true });
 
-    // On touchmove: intercept and consume the event if a slide transition is active.
-    // This kills residual inertia that would fire multiple slide advances.
     window.addEventListener('touchmove', e => {
-      if (this.isTransitioning) {
-        // Gesture in progress — block default scroll to prevent multi-slide skip
+      // Hard block: kill all scroll momentum while a transition is in flight
+      if (this.isAnimating) {
         e.preventDefault();
         return;
       }
 
-      if (this._touchHandled) return;  // Already acted on this gesture sequence
+      if (this._touchHandled) {
+        // Gesture already acted on; block further scroll to prevent momentum carry
+        e.preventDefault();
+        return;
+      }
 
       const deltaY = this._touchStartY - e.touches[0].clientY;
-      const threshold = 30; // px minimum swipe to register intentional gesture
+      if (Math.abs(deltaY) < 32) return; // Hysteresis threshold
 
-      if (Math.abs(deltaY) < threshold) return;
+      // Station 4 carousel handles its own horizontal swipe — skip vertical
+      if (this.activeStationIdx === 4) return;
 
-      // ── DIRECTIVE 1: Strict +/-1 advance regardless of swipe velocity ──
-      const currentSlide = this.activeStationIdx;
-      if (this.activeStationIdx === 4) return; // Carrusel handles its own events
+      const dir  = deltaY > 0 ? 1 : -1;
+      const next = Math.max(0, Math.min(5, this.activeStationIdx + dir));
 
-      const nextSlide = deltaY > 0
-        ? Math.min(5, currentSlide + 1)   // Swipe up → advance one
-        : Math.max(0, currentSlide - 1);  // Swipe down → retreat one
-
-      if (nextSlide !== currentSlide) {
-        this._touchHandled = true;  // One advance per gesture sequence
-        this.navigateToSlide(nextSlide);
+      if (next !== this.activeStationIdx) {
+        this._touchHandled = true;
+        e.preventDefault(); // Prevent any further scroll from this gesture
+        this.navigateToSlide(next);
       }
     }, { passive: false });
 
-    // On touchend: reset touchHandled to allow next deliberate gesture
     window.addEventListener('touchend', () => {
-      // isTransitioning will be cleared by navigateToSlide's timeout
-      // _touchHandled stays true until next touchstart to prevent ghost events
+      // _touchHandled resets on next touchstart; isAnimating resets via GSAP callback
     }, { passive: true });
 
     let resizeTimer;
@@ -993,28 +1051,29 @@ class QuantumEngine {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         ScrollTrigger.refresh(true);
-        this.goToCarouselCard(this.carouselIndex); // Recalcular posición carrusel
+        this.goToCarouselCard(this.carouselIndex);
       }, 150);
     });
   }
 
-  // ── DIRECTIVE 1: Programmatic single-slide navigation with isTransitioning lock ──
-  // Forces exactly one slide advance and blocks additional scroll events during transit.
+  // ====================================================================
+  // DIRECTIVE 1: navigateToSlide — GSAP hard-drive to exact snap position
+  // isAnimating locks the full system; released only when GSAP + snap settle.
+  // ====================================================================
   navigateToSlide(targetIdx) {
-    if (this.isTransitioning) return;  // Double-scroll guardrail
-    this.isTransitioning = true;
+    if (this.isAnimating) return;   // Strict double-entry guardrail
+    this.isAnimating = true;
 
     const totalH   = document.documentElement.scrollHeight - window.innerHeight;
-    const scrollTo = targetIdx * 0.2 * totalH;
+    const scrollTo = Math.round(targetIdx * 0.2 * totalH);
 
     gsap.to(window, {
-      scrollTo:   scrollTo,
-      duration:   1.1,
-      ease:       'power2.inOut',
+      scrollTo: { y: scrollTo, autoKill: false },
+      duration: 1.15,
+      ease:     'power2.inOut',
       onComplete: () => {
-        // Release lock only after animation fully settles
-        // Extra buffer ensures ScrollTrigger snap has settled too
-        setTimeout(() => { this.isTransitioning = false; }, 320);
+        // Release guard after scroll settles + ScrollTrigger snap finalises
+        setTimeout(() => { this.isAnimating = false; }, 380);
       }
     });
   }
@@ -1028,11 +1087,9 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   window.solemEngine = new QuantumEngine();
   console.log(
-    '[SolemEngine v3.1] QA Pass:\n' +
-    '  · D1: Sequential slide-snap lock (isTransitioning) + touch intercept\n' +
-    '  · D2: Elastic spring-physics hover (springFriction=0.048, dampening=0.72)\n' +
-    '  · D3: 1,800 depth-bg star-dust particles (cosmic amber/pearl, Z: –20→–80)\n' +
-    '  · D4: Camera FOV 60→50, Z 7.2→8.8 (compact editorial shape footprint)\n' +
-    '  · scrub: 1.8 inertial lerp on master ScrollTrigger timeline'
+    '[SolemEngine v3.2] UX Lockout Pass:\n' +
+    '  · D1: isAnimating hard-lockout on wheel+touch (one slide per event cycle)\n' +
+    '  · D2: Mobile shape scale 0.42 / Y-offset 1.8 (text dominates viewport)\n' +
+    '  · D3: Sine-wave ping-pong oscillator on bgPoints.x (±4 WS, ~40s period)'
   );
 });

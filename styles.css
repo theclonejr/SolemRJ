@@ -706,6 +706,8 @@ body {
 
 /* ======================================================================
    RESPONSIVE — MOBILE-FIRST
+   DIRECTIVE 2: Mobile Typographic Proportion Matrix
+   BOUNDARY: Only screens ≤ 1024px. Desktop layout is NOT touched.
    ====================================================================== */
 @media (max-width: 1024px) {
   .nav-links {
@@ -729,13 +731,13 @@ body {
   .menu-toggle.open .bar:nth-child(1) { transform: translateY(8px) rotate(45deg); }
   .menu-toggle.open .bar:nth-child(2) { transform: translateY(-8px) rotate(-45deg); }
 
-  /* Apilado vertical Mobile — partículas arriba, texto abajo */
+  /* ── DIRECTIVE 2: Vertical stack — WebGL shape occupies upper ~38%, text dominates lower ~62% ── */
   .station-slide {
     flex-direction: column;
     justify-content: flex-end;
-    padding-bottom: clamp(1rem, 5vh, 3.5rem);
-    padding-left: 1.4rem;
-    padding-right: 1.4rem;
+    padding-bottom: clamp(1.2rem, 4vh, 2.8rem);
+    padding-left: 1.2rem;
+    padding-right: 1.2rem;
   }
 
   .scroll-card,
@@ -745,14 +747,63 @@ body {
     margin: 0 !important;
   }
 
+  /* ── DIRECTIVE 2: .scroll-card — taller allocation for expanded type ──
+     max-height raised to 62vh to accommodate larger font sizes.
+     Internal overflow hidden is kept but content should never need it
+     with the new type scale. Use overflow-y: visible if needed. */
   .scroll-card {
-    max-height: 52vh;
-    padding: 1.2rem 1.2rem 1.2rem 1.4rem;
+    max-height: 62vh;
+    overflow-y: hidden;
+    padding: clamp(1.4rem, 3.5vh, 2.4rem) clamp(1.2rem, 4vw, 2rem) clamp(1.4rem, 3.5vh, 2.4rem) clamp(1.4rem, 4vw, 2rem);
   }
 
   .hero-floating-content {
-    height: 52vh;
+    height: 60vh;
     justify-content: flex-end;
+  }
+
+  /* ── DIRECTIVE 2: TYPOGRAPHIC SCALE — Mobile Hero ──
+     Hero title must dominate at least 20% of viewport height.
+     Font size clamp: floor raised for small screens, ceiling for tablets. */
+  .hero-title {
+    font-size: clamp(2.4rem, 8vw, 4rem);
+    line-height: 1.06;
+    letter-spacing: -2px;
+    margin-bottom: 0.85rem;
+  }
+
+  /* ── DIRECTIVE 2: TYPOGRAPHIC SCALE — Card Titles ── */
+  .card-title {
+    font-size: clamp(1.8rem, 6vw, 2.8rem);
+    line-height: 1.12;
+    margin-bottom: clamp(0.6rem, 1.8vh, 1rem);
+  }
+
+  /* ── DIRECTIVE 2: TYPOGRAPHIC SCALE — Body Copy ──
+     Both hero-text and card-text: readable comfortable size on mobile.
+     Line-height slightly taller for improved mobile legibility. */
+  .hero-text {
+    font-size: clamp(0.95rem, 2.8vw, 1.15rem);
+    line-height: 1.72;
+    margin-bottom: 1.4rem;
+  }
+
+  .card-text {
+    font-size: clamp(0.92rem, 2.6vw, 1.08rem);
+    line-height: 1.68;
+    margin-bottom: clamp(0.7rem, 2vh, 1.1rem);
+  }
+
+  /* ── DIRECTIVE 2: TYPOGRAPHIC SCALE — Bullets ── */
+  .card-bullets li {
+    font-size: clamp(0.88rem, 2.5vw, 1rem);
+    line-height: 1.55;
+  }
+
+  /* ── DIRECTIVE 2: Station badge stays compact on mobile ── */
+  .station-badge {
+    font-size: clamp(0.6rem, 1.8vw, 0.68rem);
+    margin-bottom: clamp(0.5rem, 1.5vh, 0.9rem);
   }
 
   /* Carrusel mobile */
@@ -765,8 +816,8 @@ body {
   .contact-wrapper { padding-top: 75px; }
 
   .sculpted-glass-heavy {
-    max-height: 62vh;
-    padding: 1.2rem;
+    max-height: 64vh;
+    padding: 1.3rem;
   }
 
   .form-grid { grid-template-columns: 1fr; gap: 0.8rem; }
@@ -778,11 +829,14 @@ body {
   }
 }
 
+/* ── Small phones (480px and below): fine-tune spacing without re-scaling type ── */
 @media (max-width: 480px) {
-  .station-slide   { padding-bottom: 1rem; padding-left: 1rem; padding-right: 1rem; }
-  .scroll-card     { max-height: 58vh; padding: 1rem 1rem 1rem 1.2rem; }
-  .hero-floating-content { height: 58vh; }
+  .station-slide         { padding-bottom: 0.8rem; padding-left: 0.9rem; padding-right: 0.9rem; }
+  .scroll-card           { max-height: 66vh; padding: 1.1rem 1rem 1.1rem 1.1rem; }
+  .hero-floating-content { height: 64vh; }
   .carousel-breadcrumb   { gap: 0.4rem; }
-  .crumb                 { font-size: 0.62rem; letter-spacing: 1.5px; }
+  .crumb                 { font-size: 0.6rem; letter-spacing: 1.5px; }
   .carr-btn              { width: 30px; height: 30px; font-size: 1.1rem; }
+  /* Extra nudge for very small screens — prevents card bullets from cramping */
+  .card-bullets          { gap: clamp(0.3rem, 0.8vh, 0.55rem); }
 }
