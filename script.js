@@ -59,14 +59,22 @@ class QuantumEngine {
     this.carouselLocked   = false;
     this._noCarouselReset = false; // Guardia anti-recursión
 
-    // ── DIRECTIVE 1: Hard isAnimating global slide-lock ──
+    // ── Global slide-lock (wheel + touch) ──
     // isAnimating = true during ANY GSAP slide transition.
     // ALL wheel and touch inputs are silently dropped while locked.
     this.isAnimating      = false;   // Global animation state guard
     this._touchStartY     = 0;       // Touch start Y for vertical swipe detection
     this._touchHandled    = false;   // Single-gesture flag — reset only on touchstart
 
-    // ── DIRECTIVE 3: Depth BG ping-pong oscillator state ──
+    // ── DIRECTIVE 1: Mobile-specific secondary gesture lock ──
+    // isMobileScrolling is a dedicated mobile brake that persists until BOTH
+    // the GSAP animation completes AND the touchend event fires.
+    // This eliminates carry-over inertia that isAnimating alone cannot block
+    // when the finger is still physically on the screen post-transition.
+    this.isMobileScrolling = false;  // Mobile-specific single-swipe guardrail
+    this._touchEndPending  = false;  // Tracks whether finger is still on screen
+
+    // ── Depth BG ping-pong oscillator state ──
     // bgOscTime tracks accumulated time for the sine-wave bounce
     this._bgOscTime       = 0;       // Elapsed oscillator time (seconds)
     this.BG_X_LIMIT       = 4.0;     // World-space X boundary for the oscillation
@@ -999,31 +1007,40 @@ class QuantumEngine {
     }, { passive: false, capture: true });
 
     // ====================================================================
-    // DIRECTIVE 1: ABSOLUTE SLIDE LOCKOUT — TOUCH
-    // touchstart resets the per-gesture flag.
-    // touchmove: while isAnimating blocks all scroll (kills iOS inertia).
-    //            On first threshold crossing → lock + advance exactly ±1 slide.
+    // DIRECTIVE 1: HARD TOUCH-GESTURE LOCKOUT ENGINE (MOBILE)
+    // Layer 1 — isAnimating: blocks all input during GSAP flight.
+    // Layer 2 — isMobileScrolling: mobile-specific secondary brake that
+    //   stays locked until BOTH the animation completes AND the finger lifts.
+    //   This eliminates carry-over iOS inertia that bypasses isAnimating.
+    // touchstart: non-passive so we can call preventDefault immediately
+    //   if a transition is already in progress (kills rubber-band inertia).
     // ====================================================================
     window.addEventListener('touchstart', e => {
+      // If a slide is animating, kill the new touch gesture at the root
+      if (this.isAnimating || this.isMobileScrolling) {
+        e.preventDefault();
+        return;
+      }
       this._touchStartY  = e.touches[0].clientY;
       this._touchHandled = false;
-    }, { passive: true });
+      this._touchEndPending = true; // Finger is on screen
+    }, { passive: false }); // non-passive so preventDefault works here
 
     window.addEventListener('touchmove', e => {
-      // Hard block: kill all scroll momentum while a transition is in flight
+      // Layer 1: Hard block — GSAP animation in flight
       if (this.isAnimating) {
         e.preventDefault();
         return;
       }
 
-      if (this._touchHandled) {
-        // Gesture already acted on; block further scroll to prevent momentum carry
-        e.preventDefault();
+      // Layer 2: Mobile-specific lock — gesture already acted on this cycle
+      if (this.isMobileScrolling || this._touchHandled) {
+        e.preventDefault(); // Kills all momentum carry from current gesture
         return;
       }
 
       const deltaY = this._touchStartY - e.touches[0].clientY;
-      if (Math.abs(deltaY) < 32) return; // Hysteresis threshold
+      if (Math.abs(deltaY) < 32) return; // Hysteresis: ignore micro-jitter
 
       // Station 4 carousel handles its own horizontal swipe — skip vertical
       if (this.activeStationIdx === 4) return;
@@ -1032,14 +1049,33 @@ class QuantumEngine {
       const next = Math.max(0, Math.min(5, this.activeStationIdx + dir));
 
       if (next !== this.activeStationIdx) {
-        this._touchHandled = true;
-        e.preventDefault(); // Prevent any further scroll from this gesture
+        this._touchHandled    = true;  // Consume this gesture cycle
+        this.isMobileScrolling = true; // Lock Layer 2 until GSAP + touchend
+        e.preventDefault();
         this.navigateToSlide(next);
       }
     }, { passive: false });
 
+    // touchend: tracks when the finger lifts so isMobileScrolling can clear.
+    // isMobileScrolling is only released when BOTH conditions are met:
+    //   A) GSAP onComplete has fired (sets this._gsapDone = true)
+    //   B) touchend fires (finger has physically left the screen)
+    // This guarantees zero carry-over swipe momentum.
     window.addEventListener('touchend', () => {
-      // _touchHandled resets on next touchstart; isAnimating resets via GSAP callback
+      this._touchEndPending = false;
+      // If GSAP already finished, release the mobile lock now
+      if (this._gsapDone) {
+        this._gsapDone = false;
+        this.isMobileScrolling = false;
+      }
+      // Otherwise navigateToSlide's onComplete will clear it when it fires
+    }, { passive: true });
+
+    window.addEventListener('touchcancel', () => {
+      // Safety net: always release on cancel to avoid permanent lockout
+      this._touchEndPending  = false;
+      this._touchHandled     = false;
+      this.isMobileScrolling = false;
     }, { passive: true });
 
     let resizeTimer;
@@ -1058,11 +1094,14 @@ class QuantumEngine {
 
   // ====================================================================
   // DIRECTIVE 1: navigateToSlide — GSAP hard-drive to exact snap position
-  // isAnimating locks the full system; released only when GSAP + snap settle.
+  // isAnimating locks the global system.
+  // isMobileScrolling is the mobile-specific Layer 2 lock:
+  //   released only when GSAP settles AND finger has lifted (touchend).
   // ====================================================================
   navigateToSlide(targetIdx) {
     if (this.isAnimating) return;   // Strict double-entry guardrail
     this.isAnimating = true;
+    this._gsapDone   = false;
 
     const totalH   = document.documentElement.scrollHeight - window.innerHeight;
     const scrollTo = Math.round(targetIdx * 0.2 * totalH);
@@ -1072,8 +1111,16 @@ class QuantumEngine {
       duration: 1.15,
       ease:     'power2.inOut',
       onComplete: () => {
-        // Release guard after scroll settles + ScrollTrigger snap finalises
-        setTimeout(() => { this.isAnimating = false; }, 380);
+        setTimeout(() => {
+          this.isAnimating = false;
+          // Release isMobileScrolling only when finger is already off screen.
+          // If still touching, touchend handler will clear it when finger lifts.
+          if (!this._touchEndPending) {
+            this.isMobileScrolling = false;
+          } else {
+            this._gsapDone = true; // Signal touchend to release when it fires
+          }
+        }, 380);
       }
     });
   }
@@ -1087,9 +1134,9 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   window.solemEngine = new QuantumEngine();
   console.log(
-    '[SolemEngine v3.2] UX Lockout Pass:\n' +
-    '  · D1: isAnimating hard-lockout on wheel+touch (one slide per event cycle)\n' +
-    '  · D2: Mobile shape scale 0.42 / Y-offset 1.8 (text dominates viewport)\n' +
+    '[SolemEngine v3.3] Mobile UX Pass:\n' +
+    '  · D1: isMobileScrolling Layer-2 lock (GSAP+touchend dual-release)\n' +
+    '  · D2: Centered mobile layout, carousel arrows safe-zone enforced\n' +
     '  · D3: Sine-wave ping-pong oscillator on bgPoints.x (±4 WS, ~40s period)'
   );
 });
