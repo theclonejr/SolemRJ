@@ -261,86 +261,55 @@ class QuantumEngine {
     }
 
     // ------------------------------------------------------------------
-    // ESTACIÓN 1 — WEB SYSTEMS & AI MODELS (Neural Nodes webbed in Browser Shell)
+    // ESTACIÓN 1 — CODE SYMBOL VECTOR GEOMETRY (</>)
+    // Crisp, high-fidelity representation of code brackets symbol: </>
     // ------------------------------------------------------------------
-    const nodes = [
-      { x: -1.0, y:  0.4, z:  0.0 }, // Top left node
-      { x:  1.0, y:  0.5, z:  0.0 }, // Top right node
-      { x: -0.4, y: -0.5, z:  0.1 }, // Bottom left-ish node
-      { x:  0.4, y: -0.4, z: -0.1 }, // Bottom right-ish node
-      { x:  0.0, y:  0.0, z:  0.0 }, // Center node
-      { x: -1.2, y: -0.2, z: -0.05}, // Far left node
-      { x:  1.2, y: -0.1, z:  0.05}  // Far right node
-    ];
-
-    const connections = [
-      [0, 1], [0, 4], [1, 4], [2, 4], [3, 4], [2, 3],
-      [5, 0], [5, 2], [6, 1], [6, 3]
-    ];
-
-    const shellLimit = Math.floor(N * 0.35);
-    const nodesLimit = Math.floor(N * 0.55);
+    const limitLeft  = Math.floor(N * 0.30);
+    const limitSlash = Math.floor(N * 0.70); // 40% for slash, 30% for right bracket
 
     for (let i = 0; i < N; i++) {
       let x = 0, y = 0, z = 0;
+      const zSpread = (Math.random() - 0.5) * 0.08;
 
-      if (i < shellLimit) {
-        // --- 1. Browser Interface Shell ---
-        const sub = i % 4;
-        const zSpread = (Math.random() - 0.5) * 0.05;
-        if (sub === 0) {
-          // Horizontal borders (Top and Bottom)
-          const isTop = Math.random() > 0.4;
-          x = (Math.random() - 0.5) * 3.2;
-          y = isTop ? 1.1 : -1.1;
-          z = zSpread;
-        } else if (sub === 1) {
-          // Vertical borders (Left and Right)
-          const isLeft = Math.random() > 0.5;
-          x = isLeft ? -1.6 : 1.6;
-          y = (Math.random() - 0.5) * 2.2;
-          z = zSpread;
-        } else if (sub === 2) {
-          // Top bar division (e.g. at Y = 0.8)
-          x = (Math.random() - 0.5) * 3.2;
-          y = 0.8;
-          z = zSpread;
-        } else {
-          // Window Control Dots (3 dots in top-left)
-          const dotIdx = Math.floor(Math.random() * 3);
-          const dotX = -1.4 + dotIdx * 0.15;
-          const dotY = 0.95;
-          const dotR = 0.03 + Math.random() * 0.02;
-          const ang = Math.random() * Math.PI * 2;
-          x = dotX + dotR * Math.cos(ang);
-          y = dotY + dotR * Math.sin(ang);
-          z = zSpread;
-        }
-      } else if (i < nodesLimit) {
-        // --- 2. Neural Nodes (Spherical Clusters) ---
-        const nodeIdx = i % nodes.length;
-        const node = nodes[nodeIdx];
-        const r = Math.pow(Math.random(), 2.0) * 0.15; // dense core
-        const theta = Math.random() * Math.PI;
-        const phi = Math.random() * Math.PI * 2;
-        x = node.x + r * Math.sin(theta) * Math.cos(phi);
-        y = node.y + r * Math.cos(theta);
-        z = node.z + r * Math.sin(theta) * Math.sin(phi);
-      } else {
-        // --- 3. Interconnecting Neural Web ---
-        const connIdx = i % connections.length;
-        const conn = connections[connIdx];
-        const nodeA = nodes[conn[0]];
-        const nodeB = nodes[conn[1]];
-        // Lerp along connection path
+      if (i < limitLeft) {
+        // --- Left Bracket < ---
+        const half = limitLeft / 2;
         const t = Math.random();
-        const offsetMag = 0.03 * Math.sin(t * Math.PI);
-        const randX = (Math.random() - 0.5) * 0.02;
-        const randY = (Math.random() - 0.5) * 0.02;
-        const randZ = (Math.random() - 0.5) * 0.02;
-        x = nodeA.x + (nodeB.x - nodeA.x) * t + randX;
-        y = nodeA.y + (nodeB.y - nodeA.y) * t + offsetMag + randY;
-        z = nodeA.z + (nodeB.z - nodeA.z) * t + randZ;
+        const thickness = (Math.random() - 0.5) * 0.06;
+        if (i < half) {
+          // Upper half: from (-0.6, 0.6) to (-1.2, 0.0)
+          x = -0.6 - 0.6 * t + thickness;
+          y = 0.6 - 0.6 * t + thickness;
+        } else {
+          // Lower half: from (-1.2, 0.0) to (-0.6, -0.6)
+          x = -1.2 + 0.6 * t + thickness;
+          y = -0.6 * t + thickness;
+        }
+        z = zSpread;
+      } else if (i < limitSlash) {
+        // --- Slash / ---
+        const t = Math.random();
+        const thickness = (Math.random() - 0.5) * 0.06;
+        // From (0.3, 0.9) to (-0.3, -0.9)
+        x = 0.3 - 0.6 * t + thickness;
+        y = 0.9 - 1.8 * t + thickness;
+        z = zSpread;
+      } else {
+        // --- Right Bracket > ---
+        const limitRight = N - limitSlash;
+        const half = limitSlash + Math.floor(limitRight / 2);
+        const t = Math.random();
+        const thickness = (Math.random() - 0.5) * 0.06;
+        if (i < half) {
+          // Upper half: from (0.6, 0.6) to (1.2, 0.0)
+          x = 0.6 + 0.6 * t + thickness;
+          y = 0.6 - 0.6 * t + thickness;
+        } else {
+          // Lower half: from (1.2, 0.0) to (0.6, -0.6)
+          x = 1.2 - 0.6 * t + thickness;
+          y = -0.6 * t + thickness;
+        }
+        z = zSpread;
       }
 
       this.posWeb[i*3]   = x;
@@ -396,22 +365,85 @@ class QuantumEngine {
     }
 
     // ------------------------------------------------------------------
-    // ESTACIÓN 3 — VÓRTICE HIPERBÓLICO
+    // ESTACIÓN 3 — MARKETING STATION (Briefcase / Portfolio Geometry)
     // ------------------------------------------------------------------
-    this.vortexY      = new Float32Array(N);
-    this.vortexAngles = new Float32Array(N);
-    this.vortexRadii  = new Float32Array(N);
+    const limitBody   = Math.floor(N * 0.65);
+    const limitEdges  = Math.floor(N * 0.85);
+    const limitHandle = Math.floor(N * 0.95);
+
     for (let i = 0; i < N; i++) {
-      const y   = (Math.random() - 0.5) * 5.0;
-      const ang = Math.random() * Math.PI * 2;
-      const bR  = 0.65 + 0.3 * Math.pow(y + 2.5, 1.8);
-      const r   = bR * (0.92 + 0.08 * Math.random());
-      this.vortexY[i]      = y;
-      this.vortexAngles[i] = ang;
-      this.vortexRadii[i]  = r;
-      this.posMkt[i*3]     = r * Math.cos(ang);
-      this.posMkt[i*3+1]   = y;
-      this.posMkt[i*3+2]   = r * Math.sin(ang);
+      let x = 0, y = 0, z = 0;
+
+      if (i < limitBody) {
+        // --- 1. Briefcase Body (6 Faces of a Box) ---
+        const face = i % 6;
+        const rx = (Math.random() - 0.5) * 2.6; // Width: 2.6 (-1.3 to 1.3)
+        const ry = -0.2 + (Math.random() - 0.5) * 1.4; // Height: 1.4 (-0.9 to 0.5)
+        const rz = (Math.random() - 0.5) * 0.5; // Depth: 0.5 (-0.25 to 0.25)
+
+        if (face === 0) { // Front face (Z = 0.25)
+          x = rx; y = ry; z = 0.25;
+        } else if (face === 1) { // Back face (Z = -0.25)
+          x = rx; y = ry; z = -0.25;
+        } else if (face === 2) { // Left face (X = -1.3)
+          x = -1.3; y = ry; z = rz;
+        } else if (face === 3) { // Right face (X = 1.3)
+          x = 1.3; y = ry; z = rz;
+        } else if (face === 4) { // Top face (Y = 0.5)
+          x = rx; y = 0.5; z = rz;
+        } else { // Bottom face (Y = -0.9)
+          x = rx; y = -0.9; z = rz;
+        }
+      } else if (i < limitEdges) {
+        // --- 2. Briefcase Edges (Outlines) ---
+        const edge = i % 12;
+        const t = Math.random();
+        const ex = -1.3 + t * 2.6;
+        const ey = -0.9 + t * 1.4;
+        const ez = -0.25 + t * 0.5;
+
+        // 12 edges of a box [-1.3, 1.3] x [-0.9, 0.5] x [-0.25, 0.25]
+        if (edge === 0) { x = ex; y = 0.5; z = 0.25; }
+        else if (edge === 1) { x = ex; y = -0.9; z = 0.25; }
+        else if (edge === 2) { x = ex; y = 0.5; z = -0.25; }
+        else if (edge === 3) { x = ex; y = -0.9; z = -0.25; }
+        else if (edge === 4) { x = -1.3; y = ey; z = 0.25; }
+        else if (edge === 5) { x = 1.3; y = ey; z = 0.25; }
+        else if (edge === 6) { x = -1.3; y = ey; z = -0.25; }
+        else if (edge === 7) { x = 1.3; y = ey; z = -0.25; }
+        else if (edge === 8) { x = -1.3; y = 0.5; z = ez; }
+        else if (edge === 9) { x = 1.3; y = 0.5; z = ez; }
+        else if (edge === 10) { x = -1.3; y = -0.9; z = ez; }
+        else { x = 1.3; y = -0.9; z = ez; }
+      } else if (i < limitHandle) {
+        // --- 3. Briefcase Handle (U-Shape Arc at top) ---
+        const handlePart = i % 3;
+        const t = Math.random();
+        const hZ = (Math.random() - 0.5) * 0.1; // thin depth
+        if (handlePart === 0) {
+          // Left handle leg: vertical from (-0.35, 0.5, 0) to (-0.35, 0.75, 0)
+          x = -0.35; y = 0.5 + 0.25 * t; z = hZ;
+        } else if (handlePart === 1) {
+          // Right handle leg: vertical from (0.35, 0.5, 0) to (0.35, 0.75, 0)
+          x = 0.35; y = 0.5 + 0.25 * t; z = hZ;
+        } else {
+          // Top handle bar: horizontal from (-0.35, 0.75, 0) to (0.35, 0.75, 0)
+          x = -0.35 + 0.70 * t; y = 0.75; z = hZ;
+        }
+      } else {
+        // --- 4. Briefcase Clasp (Front Buckles / Locks) ---
+        const t1 = Math.random();
+        const t2 = Math.random();
+        const side = i % 2 === 0 ? -1 : 1;
+        // Two small square clasps at X = -0.4 and X = 0.4
+        x = side * 0.4 + (t1 - 0.5) * 0.14;
+        y = 0.1 + t2 * 0.25;
+        z = 0.26; // slightly in front of front face
+      }
+
+      this.posMkt[i*3]   = x;
+      this.posMkt[i*3+1] = y;
+      this.posMkt[i*3+2] = z;
     }
 
     // ------------------------------------------------------------------
@@ -614,8 +646,19 @@ class QuantumEngine {
     const elapsed = this.clock.getElapsedTime();
 
     // Lerp secundario: suaviza cualquier salto residual que supere el scrub de GSAP
-    this.smoothedProgress += (this.scrollObj.progress - this.smoothedProgress) * 0.055;
-    const progress = this.smoothedProgress;
+    const _isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const lerpSpeed = _isMobile ? 0.18 : 0.055; // Snappy convergence on mobile
+    this.smoothedProgress += (this.scrollObj.progress - this.smoothedProgress) * lerpSpeed;
+    let progress = this.smoothedProgress;
+
+    // Snapping the progress state to fully composed shapes at slide rest points
+    const snapPoints = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0];
+    for (let i = 0; i < snapPoints.length; i++) {
+      if (Math.abs(progress - snapPoints[i]) < 0.008) {
+        progress = snapPoints[i];
+        break;
+      }
+    }
 
     const INTERVAL = 0.2;
     let idx = Math.min(4, Math.floor(progress / INTERVAL));
@@ -681,8 +724,10 @@ class QuantumEngine {
       // Particles glide away on hover and snap back via velocity-based spring.
       // Only active when NOT in transition explosion phase.
       if (ep < 0.08) {
-        const hdx  = rx - this.mouseWorld.x;
-        const hdy  = ry - this.mouseWorld.y;
+        const localMouseX = this.mouseWorld.x - this.points.position.x;
+        const localMouseY = this.mouseWorld.y - this.points.position.y;
+        const hdx  = rx - localMouseX;
+        const hdy  = ry - localMouseY;
         const dist = Math.sqrt(hdx*hdx + hdy*hdy);
 
         // Compute target displacement: push outward when inside influence radius
@@ -753,9 +798,11 @@ class QuantumEngine {
       x = cx + r * Math.cos(ang); y = cy + r * Math.sin(ang); z = this.gearHeights[i];
 
     } else if (stationIdx === 3) {
-      const r = this.vortexRadii[i], bA = this.vortexAngles[i], vy = this.vortexY[i];
-      const spS = elapsed * 2.0 + vy * 1.25;
-      x = r * Math.cos(bA + spS); y = vy; z = r * Math.sin(bA + spS);
+      const bx = this.posMkt[i3], by = this.posMkt[i3+1], bz = this.posMkt[i3+2];
+      const rotSpeed = elapsed * 0.15; // Slow professional rotation
+      x = bx * Math.cos(rotSpeed) - bz * Math.sin(rotSpeed);
+      y = by;
+      z = bx * Math.sin(rotSpeed) + bz * Math.cos(rotSpeed);
 
     } else if (stationIdx === 4) {
       const gType = this.constelTypes[i];
@@ -1022,8 +1069,11 @@ class QuantumEngine {
   initInteraction() {
     // ── Mouse raycaster — window-normalised NDC, no canvas-offset bias ──
     window.addEventListener('mousemove', e => {
-      this.mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
-      this.mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      const rect = this.canvas.getBoundingClientRect();
+      const clientX = e.clientX - rect.left;
+      const clientY = e.clientY - rect.top;
+      this.mouse.x =  (clientX / rect.width)  * 2 - 1;
+      this.mouse.y = -(clientY / rect.height) * 2 + 1;
       const v = new THREE.Vector3(this.mouse.x, this.mouse.y, 0.5).unproject(this.camera);
       const d = v.sub(this.camera.position).normalize();
       const tt = -this.camera.position.z / d.z;
