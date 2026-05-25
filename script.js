@@ -53,6 +53,7 @@ class QuantumEngine {
     this.smoothedProgress = 0.0;
     this.activeStationIdx = 0;
     this.currentTab       = 'training';
+    this.lastTransitionTime = 0; // Cooldown timer to prevent inertial wheel/touch events from skipping slides
 
     // Carrusel Horizontal (Estación 4)
     this.carouselIndex    = 0;
@@ -182,13 +183,17 @@ class QuantumEngine {
     }
 
     // ------------------------------------------------------------------
-    // ESTACIÓN 0 — COHETE ESPACIAL ESTILIZADO
-    // Geometría aerodinámica mejorada + rotación 45° en eje Z al final
+    // ESTACIÓN 0 — COHETE ESPACIAL ESTILIZADO (Proporcional para Mobile/Desktop)
     // ------------------------------------------------------------------
+    const noseLimit = Math.floor(N * 0.18);
+    const bodyLimit = Math.floor(N * 0.48);
+    const finsLimit = Math.floor(N * 0.64);
+    const nozLimit  = Math.floor(N * 0.74);
+
     for (let i = 0; i < N; i++) {
       let x = 0, y = 0, z = 0;
 
-      if (i < 5500) {
+      if (i < noseLimit) {
         // Cono de nariz aerodinámico (punta aguda)
         const h      = Math.pow(Math.random(), 0.65); // Más denso en la base del cono
         const coneR  = (1 - h) * 0.36;
@@ -197,7 +202,7 @@ class QuantumEngine {
         z = (coneR + (Math.random() - 0.5) * 0.025) * Math.sin(ang);
         y = 2.3 + h * 1.6;  // Y: 2.3 (base cono) → 3.9 (punta)
 
-      } else if (i < 14500) {
+      } else if (i < bodyLimit) {
         // Cuerpo cilíndrico delgado y largo
         const ang    = Math.random() * Math.PI * 2;
         const isOuter= Math.random() < 0.82;
@@ -206,7 +211,7 @@ class QuantumEngine {
         x = r * Math.cos(ang);
         z = r * Math.sin(ang);
 
-      } else if (i < 19500) {
+      } else if (i < finsLimit) {
         // Alerones triangulares con sweepback (3 aletas)
         const finIdx  = Math.floor(Math.random() * 3);
         const baseAng = (finIdx / 3) * Math.PI * 2;
@@ -219,7 +224,7 @@ class QuantumEngine {
         z = outerR * Math.sin(swpAng + (Math.random() - 0.5) * 0.15);
         y = finY;
 
-      } else if (i < 22500) {
+      } else if (i < nozLimit) {
         // Tobera de motor (campana pronunciada)
         const nH  = Math.pow(Math.random(), 0.45);
         const nR  = 0.10 + nH * 0.56;
@@ -256,33 +261,106 @@ class QuantumEngine {
     }
 
     // ------------------------------------------------------------------
-    // ESTACIÓN 1 — CÚMULO CEREBRAL (Armónicos Esféricos Ampliados)
+    // ESTACIÓN 1 — WEB SYSTEMS & AI MODELS (Neural Nodes webbed in Browser Shell)
     // ------------------------------------------------------------------
+    const nodes = [
+      { x: -1.0, y:  0.4, z:  0.0 }, // Top left node
+      { x:  1.0, y:  0.5, z:  0.0 }, // Top right node
+      { x: -0.4, y: -0.5, z:  0.1 }, // Bottom left-ish node
+      { x:  0.4, y: -0.4, z: -0.1 }, // Bottom right-ish node
+      { x:  0.0, y:  0.0, z:  0.0 }, // Center node
+      { x: -1.2, y: -0.2, z: -0.05}, // Far left node
+      { x:  1.2, y: -0.1, z:  0.05}  // Far right node
+    ];
+
+    const connections = [
+      [0, 1], [0, 4], [1, 4], [2, 4], [3, 4], [2, 3],
+      [5, 0], [5, 2], [6, 1], [6, 3]
+    ];
+
+    const shellLimit = Math.floor(N * 0.35);
+    const nodesLimit = Math.floor(N * 0.55);
+
     for (let i = 0; i < N; i++) {
-      const xOffset = Math.random() > 0.5 ? -0.62 : 0.62;
-      const u       = Math.random(), v = Math.random();
-      const theta   = u * Math.PI;
-      const phi     = v * Math.PI * 2;
-      const rBase   = 1.38;
-      const pert    = 0.20 * Math.sin(5*theta) * Math.cos(5*phi)
-                    + 0.06 * Math.sin(18*theta) * Math.cos(18*phi);
-      const r = rBase * (1 + pert);
-      const w = 0.70 + 0.30 * Math.random();
-      this.posWeb[i*3]   = r * w * Math.sin(theta) * Math.cos(phi) + xOffset;
-      this.posWeb[i*3+1] = r * w * Math.cos(theta);
-      this.posWeb[i*3+2] = r * w * Math.sin(theta) * Math.sin(phi);
+      let x = 0, y = 0, z = 0;
+
+      if (i < shellLimit) {
+        // --- 1. Browser Interface Shell ---
+        const sub = i % 4;
+        const zSpread = (Math.random() - 0.5) * 0.05;
+        if (sub === 0) {
+          // Horizontal borders (Top and Bottom)
+          const isTop = Math.random() > 0.4;
+          x = (Math.random() - 0.5) * 3.2;
+          y = isTop ? 1.1 : -1.1;
+          z = zSpread;
+        } else if (sub === 1) {
+          // Vertical borders (Left and Right)
+          const isLeft = Math.random() > 0.5;
+          x = isLeft ? -1.6 : 1.6;
+          y = (Math.random() - 0.5) * 2.2;
+          z = zSpread;
+        } else if (sub === 2) {
+          // Top bar division (e.g. at Y = 0.8)
+          x = (Math.random() - 0.5) * 3.2;
+          y = 0.8;
+          z = zSpread;
+        } else {
+          // Window Control Dots (3 dots in top-left)
+          const dotIdx = Math.floor(Math.random() * 3);
+          const dotX = -1.4 + dotIdx * 0.15;
+          const dotY = 0.95;
+          const dotR = 0.03 + Math.random() * 0.02;
+          const ang = Math.random() * Math.PI * 2;
+          x = dotX + dotR * Math.cos(ang);
+          y = dotY + dotR * Math.sin(ang);
+          z = zSpread;
+        }
+      } else if (i < nodesLimit) {
+        // --- 2. Neural Nodes (Spherical Clusters) ---
+        const nodeIdx = i % nodes.length;
+        const node = nodes[nodeIdx];
+        const r = Math.pow(Math.random(), 2.0) * 0.15; // dense core
+        const theta = Math.random() * Math.PI;
+        const phi = Math.random() * Math.PI * 2;
+        x = node.x + r * Math.sin(theta) * Math.cos(phi);
+        y = node.y + r * Math.cos(theta);
+        z = node.z + r * Math.sin(theta) * Math.sin(phi);
+      } else {
+        // --- 3. Interconnecting Neural Web ---
+        const connIdx = i % connections.length;
+        const conn = connections[connIdx];
+        const nodeA = nodes[conn[0]];
+        const nodeB = nodes[conn[1]];
+        // Lerp along connection path
+        const t = Math.random();
+        const offsetMag = 0.03 * Math.sin(t * Math.PI);
+        const randX = (Math.random() - 0.5) * 0.02;
+        const randY = (Math.random() - 0.5) * 0.02;
+        const randZ = (Math.random() - 0.5) * 0.02;
+        x = nodeA.x + (nodeB.x - nodeA.x) * t + randX;
+        y = nodeA.y + (nodeB.y - nodeA.y) * t + offsetMag + randY;
+        z = nodeA.z + (nodeB.z - nodeA.z) * t + randZ;
+      }
+
+      this.posWeb[i*3]   = x;
+      this.posWeb[i*3+1] = y;
+      this.posWeb[i*3+2] = z;
     }
 
     // ------------------------------------------------------------------
-    // ESTACIÓN 2 — ENGRANAJES ACOPLADOS
+    // ESTACIÓN 2 — ENGRANAJES ACOPLADOS (Proporcional para Mobile/Desktop)
     // ------------------------------------------------------------------
     this.gearIds     = new Uint8Array(N);
     this.gearAngles  = new Float32Array(N);
     this.gearRadii   = new Float32Array(N);
     this.gearHeights = new Float32Array(N);
 
+    const gear0Limit = Math.floor(N * 0.33);
+    const gear1Limit = Math.floor(N * 0.66);
+
     for (let i = 0; i < N; i++) {
-      const gId = i < 10000 ? 0 : i < 20000 ? 1 : 2;
+      const gId = i < gear0Limit ? 0 : i < gear1Limit ? 1 : 2;
       this.gearIds[i] = gId;
       let R, Nd;
       if      (gId === 0) { R = 1.2; Nd = 12; }
@@ -337,7 +415,7 @@ class QuantumEngine {
     }
 
     // ------------------------------------------------------------------
-    // ESTACIÓN 4 — CONSTELACIÓN GEOMETRÍA SAGRADA (Dodec + Icos + Anillos)
+    // ESTACIÓN 4 — CONSTELACIÓN GEOMETRÍA SAGRADA (Proporcional para Mobile/Desktop)
     // ------------------------------------------------------------------
     this.constelTypes = new Uint8Array(N);
     const GR  = (1 + Math.sqrt(5)) / 2; // Golden Ratio
@@ -371,20 +449,25 @@ class QuantumEngine {
     const icosEdges  = buildEdges(icosVerts,  4 * sI * sI);
     const dodecEdges = buildEdges(dodecVerts, (4 / (GR*GR)) * sD * sD);
 
+    const const0Limit = Math.floor(N * 0.27);
+    const const1Limit = Math.floor(N * 0.54);
+    const const2Limit = Math.floor(N * 0.74);
+    const ringStep    = Math.floor(N * 0.09); // (const1Limit - const0Limit) / 3
+
     for (let i = 0; i < N; i++) {
       let x, y, z;
-      if (i < 8000) {
+      if (i < const0Limit) {
         this.constelTypes[i] = 0;
         const th = Math.random() * Math.PI * 2, ph = Math.acos(2*Math.random()-1), r = 2.8;
         x = r * Math.sin(ph) * Math.cos(th); y = r * Math.sin(ph) * Math.sin(th); z = r * Math.cos(ph);
-      } else if (i < 16000) {
-        const ringId = Math.floor((i - 8000) / 2666) + 1;
+      } else if (i < const1Limit) {
+        const ringId = Math.floor((i - const0Limit) / ringStep) + 1;
         this.constelTypes[i] = Math.min(3, ringId);
         const ang = Math.random() * Math.PI * 2, r = 2.3;
         if      (this.constelTypes[i] === 1) { x = r*Math.cos(ang); y = r*Math.sin(ang); z = 0; }
         else if (this.constelTypes[i] === 2) { x = 0; y = r*Math.cos(ang); z = r*Math.sin(ang); }
         else                                  { x = r*Math.cos(ang); y = 0; z = r*Math.sin(ang); }
-      } else if (i < 22000) {
+      } else if (i < const2Limit) {
         this.constelTypes[i] = 4;
         const edge = icosEdges[Math.floor(Math.random() * icosEdges.length)], t = Math.random();
         x = edge[0][0]+(edge[1][0]-edge[0][0])*t+(Math.random()-.5)*.05;
@@ -736,7 +819,7 @@ class QuantumEngine {
   }
 
   // ====================================================================
-  // 6. SCROLLTRIGGER — scrub:1.5 + snap suavizado
+  // 6. SCROLLTRIGGER — scrub:1.8, SIN snap nativo (controlado por motor propio)
   // ====================================================================
   initAnimations() {
     gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
@@ -745,25 +828,18 @@ class QuantumEngine {
       trigger:    '.journey-wrapper',
       start:      'top top',
       end:        'bottom bottom',
-      // ── DIRECTIVE 1: Inertial lerp scrub raised to 1.8 for smoother camera ──
       scrub:      1.8,
       pin:        '.scroll-container',
       pinSpacing: true,
       onUpdate: (self) => {
         this.scrollObj.progress = self.progress;
         this.updateActiveSlide(self.progress);
-      },
-      snap: {
-        snapTo:   [0, 0.2, 0.4, 0.6, 0.8, 1.0],
-        duration: { min: 0.45, max: 1.0 },
-        ease:     'power3.inOut',
-        delay:    0.08
       }
     });
   }
 
   // ====================================================================
-  // 7. SLIDE ACTIVO + NAV HIGHLIGHT
+  // 7. SLIDE ACTIVO CON TRANSICIÓN CSS ACELERADA + HIGHLIGHT NAV
   // ====================================================================
   updateActiveSlide(p) {
     let activeIdx;
@@ -774,15 +850,14 @@ class QuantumEngine {
     else if (p < 0.90) activeIdx = 4;
     else               activeIdx = 5;
 
-    const prev = this.activeStationIdx; // Snapshot ANTES de actualizar
+    const prev = this.activeStationIdx;
     this.activeStationIdx = activeIdx;
 
     document.querySelectorAll('.station-slide').forEach((slide, idx) => {
       slide.classList.toggle('active-slide', idx === activeIdx);
+      slide.classList.toggle('exit-slide', idx < activeIdx);
     });
 
-    // Carrusel reset al entrar a Estación 4 — guardia de re-entrada para prevenir
-    // la recursión infinita: updateActiveSlide → goToCarouselCard → updateActiveSlide
     if (activeIdx === 4 && prev !== 4 && !this._noCarouselReset) {
       this._noCarouselReset = true;
       this.goToCarouselCard(prev < 4 ? 0 : 2);
@@ -914,11 +989,14 @@ class QuantumEngine {
           const idx      = parseInt(ti);
           const totalH   = document.documentElement.scrollHeight - window.innerHeight;
           const scrollTo = idx * 0.2 * totalH;
+          this.lastTransitionTime = Date.now();
+          this.isAnimating = true;
           gsap.to(window, {
             scrollTo:  scrollTo,
-            duration:  1.35,
-            ease:      'power2.inOut',
+            duration:  0.8,
+            ease:      'power2.out',
             onComplete: () => {
+              this.isAnimating = false;
               if (tab) {
                 const map = { training: 0, projects: 1, methodology: 2 };
                 const ci  = map[tab];
@@ -963,19 +1041,17 @@ class QuantumEngine {
     // ====================================================================
     // DIRECTIVE 1: ABSOLUTE SLIDE LOCKOUT — WHEEL
     // Intercept ALL wheel events before the browser and ScrollTrigger see them.
-    // While isAnimating=true every wheel delta is silently consumed.
-    // While isAnimating=false: determine direction (+1/-1), lock, drive GSAP
-    // directly to the exact target scroll position, release lock on complete.
-    // The carousel at station 4 is handled separately below.
+    // While cooldown or animation is active, every wheel delta is silently consumed.
     // ====================================================================
     window.addEventListener('wheel', e => {
       // Always prevent native scroll — we own the scroll position entirely
       e.preventDefault();
       e.stopImmediatePropagation();
 
+      const now = Date.now();
+      if (now - this.lastTransitionTime < 800) return;
+
       // ── Carousel hijack at station 4 ──
-      // Delegate to the carousel locker; if carousel is at its limit the
-      // wheel event falls through to the slide-navigation logic below.
       if (this.activeStationIdx === 4) {
         const down = e.deltaY > 0;
         if (down && this.carouselIndex < 2) {
@@ -984,95 +1060,78 @@ class QuantumEngine {
             this.goToCarouselCard(this.carouselIndex + 1);
             setTimeout(() => { this.carouselLocked = false; }, 860);
           }
-          return; // Consumed by carousel — do NOT advance slide
+          return;
         } else if (!down && this.carouselIndex > 0) {
           if (!this.carouselLocked) {
             this.carouselLocked = true;
             this.goToCarouselCard(this.carouselIndex - 1);
             setTimeout(() => { this.carouselLocked = false; }, 860);
           }
-          return; // Consumed by carousel
+          return;
         }
-        // else: carousel is at its boundary — fall through to slide advance
       }
 
-      // ── Global lock: drop event entirely if a slide animation is running ──
       if (this.isAnimating) return;
 
       const dir = e.deltaY > 0 ? 1 : -1;
       const next = Math.max(0, Math.min(5, this.activeStationIdx + dir));
-      if (next === this.activeStationIdx) return; // Already at boundary
+      if (next === this.activeStationIdx) return;
 
       this.navigateToSlide(next);
     }, { passive: false, capture: true });
 
     // ====================================================================
     // DIRECTIVE 1: HARD TOUCH-GESTURE LOCKOUT ENGINE (MOBILE)
-    // Layer 1 — isAnimating: blocks all input during GSAP flight.
-    // Layer 2 — isMobileScrolling: mobile-specific secondary brake that
-    //   stays locked until BOTH the animation completes AND the finger lifts.
-    //   This eliminates carry-over iOS inertia that bypasses isAnimating.
-    // touchstart: non-passive so we can call preventDefault immediately
-    //   if a transition is already in progress (kills rubber-band inertia).
+    // Cooldown + isAnimating: blocks all swipe triggers during transition and cooldown.
     // ====================================================================
     window.addEventListener('touchstart', e => {
-      // If a slide is animating, kill the new touch gesture at the root
-      if (this.isAnimating || this.isMobileScrolling) {
+      const now = Date.now();
+      if (now - this.lastTransitionTime < 800 || this.isAnimating || this.isMobileScrolling) {
         e.preventDefault();
         return;
       }
       this._touchStartY  = e.touches[0].clientY;
       this._touchHandled = false;
-      this._touchEndPending = true; // Finger is on screen
-    }, { passive: false }); // non-passive so preventDefault works here
+      this._touchEndPending = true;
+    }, { passive: false });
 
     window.addEventListener('touchmove', e => {
-      // Layer 1: Hard block — GSAP animation in flight
-      if (this.isAnimating) {
+      const now = Date.now();
+      if (now - this.lastTransitionTime < 800 || this.isAnimating) {
         e.preventDefault();
         return;
       }
 
-      // Layer 2: Mobile-specific lock — gesture already acted on this cycle
       if (this.isMobileScrolling || this._touchHandled) {
-        e.preventDefault(); // Kills all momentum carry from current gesture
+        e.preventDefault();
         return;
       }
 
       const deltaY = this._touchStartY - e.touches[0].clientY;
-      if (Math.abs(deltaY) < 32) return; // Hysteresis: ignore micro-jitter
+      if (Math.abs(deltaY) < 32) return;
 
-      // Station 4 carousel handles its own horizontal swipe — skip vertical
       if (this.activeStationIdx === 4) return;
 
       const dir  = deltaY > 0 ? 1 : -1;
       const next = Math.max(0, Math.min(5, this.activeStationIdx + dir));
 
       if (next !== this.activeStationIdx) {
-        this._touchHandled    = true;  // Consume this gesture cycle
-        this.isMobileScrolling = true; // Lock Layer 2 until GSAP + touchend
+        this._touchHandled    = true;
+        this.isMobileScrolling = true;
         e.preventDefault();
         this.navigateToSlide(next);
       }
     }, { passive: false });
 
-    // touchend: tracks when the finger lifts so isMobileScrolling can clear.
-    // isMobileScrolling is only released when BOTH conditions are met:
-    //   A) GSAP onComplete has fired (sets this._gsapDone = true)
-    //   B) touchend fires (finger has physically left the screen)
-    // This guarantees zero carry-over swipe momentum.
     window.addEventListener('touchend', () => {
       this._touchEndPending = false;
-      // If GSAP already finished, release the mobile lock now
       if (this._gsapDone) {
         this._gsapDone = false;
         this.isMobileScrolling = false;
       }
-      // Otherwise navigateToSlide's onComplete will clear it when it fires
     }, { passive: true });
 
     window.addEventListener('touchcancel', () => {
-      // Safety net: always release on cancel to avoid permanent lockout
       this._touchEndPending  = false;
       this._touchHandled     = false;
       this.isMobileScrolling = false;
@@ -1094,33 +1153,29 @@ class QuantumEngine {
 
   // ====================================================================
   // DIRECTIVE 1: navigateToSlide — GSAP hard-drive to exact snap position
-  // isAnimating locks the global system.
-  // isMobileScrolling is the mobile-specific Layer 2 lock:
-  //   released only when GSAP settles AND finger has lifted (touchend).
   // ====================================================================
   navigateToSlide(targetIdx) {
-    if (this.isAnimating) return;   // Strict double-entry guardrail
+    if (this.isAnimating) return;
     this.isAnimating = true;
     this._gsapDone   = false;
+    this.lastTransitionTime = Date.now();
 
     const totalH   = document.documentElement.scrollHeight - window.innerHeight;
     const scrollTo = Math.round(targetIdx * 0.2 * totalH);
 
     gsap.to(window, {
       scrollTo: { y: scrollTo, autoKill: false },
-      duration: 1.15,
-      ease:     'power2.inOut',
+      duration: 0.65,
+      ease:     'power2.out',
       onComplete: () => {
         setTimeout(() => {
           this.isAnimating = false;
-          // Release isMobileScrolling only when finger is already off screen.
-          // If still touching, touchend handler will clear it when finger lifts.
           if (!this._touchEndPending) {
             this.isMobileScrolling = false;
           } else {
-            this._gsapDone = true; // Signal touchend to release when it fires
+            this._gsapDone = true;
           }
-        }, 380);
+        }, 150);
       }
     });
   }
