@@ -665,13 +665,20 @@ class QuantumEngine {
     let t   = (progress % INTERVAL) / INTERVAL;
     if (progress >= 1.0) { idx = 4; t = 1.0; }
 
-    // Factor de explosión asimétrico:
-    // Primera mitad → explosión agresiva/caótica (exponente < 1 = curva más corta)
-    // Segunda mitad → convergencia suave/elegante (exponente > 1)
-    const ep_raw = Math.sin(t * Math.PI);
-    const ep = t < 0.5
-      ? Math.pow(ep_raw, 0.60) * 1.18   // Estallido rápido
-      : Math.pow(ep_raw, 1.40) * 0.88;  // Recomposición fluida
+    // High-Velocity Exponential Explosion & Snappy Spring Regrouping
+    let t_blend = 0;
+    let ep = 0;
+    if (t < 0.4) {
+      t_blend = 0.0;
+      const t_exp = t / 0.4;
+      // Aggressive exponential ease-out blast
+      ep = Math.pow(1.0 - t_exp, 3.0) * 18.0;
+    } else {
+      const t_norm = (t - 0.4) / 0.6;
+      // Snappy micro-spring / magnetic attraction curve
+      t_blend = 1.0 - Math.exp(-8.0 * t_norm) * Math.cos(2.0 * Math.PI * t_norm);
+      ep = 0.0;
+    }
 
     const posAttr  = this.geometry.attributes.position;
     const posArray = posAttr.array;
@@ -695,17 +702,17 @@ class QuantumEngine {
       let xB=xA, yB=yA, zB=zA;
       this.computeCoord(idx+1, i, i3, elapsed, (x,y,z)=>{ xB=x; yB=y; zB=z; });
 
-      // Interpolación Lineal A → B
-      let rx = xA + (xB - xA) * t;
-      let ry = yA + (yB - yA) * t;
-      let rz = zA + (zB - zA) * t;
+      // Spring-physics interpolation A → B
+      let rx = xA + (xB - xA) * t_blend;
+      let ry = yA + (yB - yA) * t_blend;
+      let rz = zA + (zB - zA) * t_blend;
 
-      // Explosión Caótica Asimétrica con varianza por partícula
+      // Explosión Caótica Asimétrica de Alta Velocidad
       if (ep > 0.001) {
         const len = Math.sqrt(rx*rx + ry*ry + rz*rz) || 1;
-        const pf  = 0.82 + this.breathAmp[i] * 4.8; // Factor individual caótico
-        const push = ep * 5.8 * pf;
-        const turb = ep * 2.9 * pf;
+        const pf  = 0.82 + this.breathAmp[i] * 4.8;
+        const push = ep * 8.5 * pf;
+        const turb = ep * 4.2 * pf;
         rx += (rx/len) * push + this.randomDirs[i3]   * turb;
         ry += (ry/len) * push + this.randomDirs[i3+1] * turb;
         rz += (rz/len) * push + this.randomDirs[i3+2] * turb;
@@ -869,20 +876,9 @@ class QuantumEngine {
   // 6. SCROLLTRIGGER — scrub:1.8, SIN snap nativo (controlado por motor propio)
   // ====================================================================
   initAnimations() {
-    gsap.registerPlugin(ScrollTrigger, ScrollToPlugin);
-
-    this.masterST = ScrollTrigger.create({
-      trigger:    '.journey-wrapper',
-      start:      'top top',
-      end:        'bottom bottom',
-      scrub:      1.8,
-      pin:        '.scroll-container',
-      pinSpacing: true,
-      onUpdate: (self) => {
-        this.scrollObj.progress = self.progress;
-        this.updateActiveSlide(self.progress);
-      }
-    });
+    this.scrollObj.progress = 0.0;
+    this.smoothedProgress = 0.0;
+    this.updateActiveSlide(0.0);
   }
 
   // ====================================================================
@@ -910,6 +906,8 @@ class QuantumEngine {
       this.goToCarouselCard(prev < 4 ? 0 : 2);
       this._noCarouselReset = false;
     }
+
+    document.getElementById('main-nav')?.classList.toggle('scrolled', activeIdx > 0);
 
     this.refreshNavHighlight();
   }
@@ -967,7 +965,6 @@ class QuantumEngine {
     }, { passive: true });
 
     // Wheel Hijacking — capture:true intercepta ANTES de que el scroll nativo actualice scrollY
-    // Cuando se previene el default, ScrollTrigger no recibe el evento de scroll → se congela en 0.8
     window.addEventListener('wheel', (e) => {
       if (this.activeStationIdx !== 4) return;
 
@@ -992,7 +989,6 @@ class QuantumEngine {
           setTimeout(() => { this.carouselLocked = false; }, 860);
         }
       }
-      // else: propaga → ScrollTrigger avanza/retrocede estación
     }, { passive: false, capture: true });
   }
 
@@ -1033,24 +1029,8 @@ class QuantumEngine {
         const ti  = link.getAttribute('data-index') || link.getAttribute('data-target');
         const tab = link.getAttribute('data-tab');
         if (ti !== null && ti !== undefined) {
-          const idx      = parseInt(ti);
-          const totalH   = document.documentElement.scrollHeight - window.innerHeight;
-          const scrollTo = idx * 0.2 * totalH;
-          this.lastTransitionTime = Date.now();
-          this.isAnimating = true;
-          gsap.to(window, {
-            scrollTo:  scrollTo,
-            duration:  0.8,
-            ease:      'power2.out',
-            onComplete: () => {
-              this.isAnimating = false;
-              if (tab) {
-                const map = { training: 0, projects: 1, methodology: 2 };
-                const ci  = map[tab];
-                if (ci !== undefined) this.goToCarouselCard(ci);
-              }
-            }
-          });
+          const idx = parseInt(ti);
+          this.navigateToSlide(idx, tab);
         }
         document.getElementById('nav-links').classList.remove('open');
         document.getElementById('menu-toggle').classList.remove('open');
@@ -1083,10 +1063,6 @@ class QuantumEngine {
     window.addEventListener('mouseleave', () => {
       this.mouseWorld.set(9999, 9999, 0);
     });
-
-    window.addEventListener('scroll', () => {
-      document.getElementById('main-nav').classList.toggle('scrolled', window.scrollY > 50);
-    }, { passive: true });
 
     // ====================================================================
     // DIRECTIVE 1: ABSOLUTE SLIDE LOCKOUT — WHEEL
@@ -1160,9 +1136,31 @@ class QuantumEngine {
       const deltaY = this._touchStartY - e.touches[0].clientY;
       if (Math.abs(deltaY) < 32) return;
 
-      if (this.activeStationIdx === 4) return;
-
       const dir  = deltaY > 0 ? 1 : -1;
+
+      // ── Carousel hijack at station 4 for touch ──
+      if (this.activeStationIdx === 4) {
+        if (dir > 0 && this.carouselIndex < 2) {
+          if (!this.carouselLocked) {
+            this.carouselLocked = true;
+            this.goToCarouselCard(this.carouselIndex + 1);
+            setTimeout(() => { this.carouselLocked = false; }, 860);
+          }
+          this._touchHandled = true;
+          e.preventDefault();
+          return;
+        } else if (dir < 0 && this.carouselIndex > 0) {
+          if (!this.carouselLocked) {
+            this.carouselLocked = true;
+            this.goToCarouselCard(this.carouselIndex - 1);
+            setTimeout(() => { this.carouselLocked = false; }, 860);
+          }
+          this._touchHandled = true;
+          e.preventDefault();
+          return;
+        }
+      }
+
       const next = Math.max(0, Math.min(5, this.activeStationIdx + dir));
 
       if (next !== this.activeStationIdx) {
@@ -1195,7 +1193,6 @@ class QuantumEngine {
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        ScrollTrigger.refresh(true);
         this.goToCarouselCard(this.carouselIndex);
       }, 150);
     });
@@ -1204,20 +1201,31 @@ class QuantumEngine {
   // ====================================================================
   // DIRECTIVE 1: navigateToSlide — GSAP hard-drive to exact snap position
   // ====================================================================
-  navigateToSlide(targetIdx) {
+  navigateToSlide(targetIdx, tab = null) {
     if (this.isAnimating) return;
     this.isAnimating = true;
     this._gsapDone   = false;
     this.lastTransitionTime = Date.now();
 
-    const totalH   = document.documentElement.scrollHeight - window.innerHeight;
-    const scrollTo = Math.round(targetIdx * 0.2 * totalH);
+    const endProgress = targetIdx * 0.2;
 
-    gsap.to(window, {
-      scrollTo: { y: scrollTo, autoKill: false },
-      duration: 0.65,
-      ease:     'power2.out',
+    gsap.to(this.scrollObj, {
+      progress: endProgress,
+      duration: 0.8,
+      ease: 'none', // Easing is handled mathematically in rendering loop
+      onUpdate: () => {
+        this.updateActiveSlide(this.scrollObj.progress);
+      },
       onComplete: () => {
+        this.scrollObj.progress = endProgress;
+        this.smoothedProgress = endProgress;
+
+        if (tab) {
+          const map = { training: 0, projects: 1, methodology: 2 };
+          const ci  = map[tab];
+          if (ci !== undefined) this.goToCarouselCard(ci);
+        }
+
         setTimeout(() => {
           this.isAnimating = false;
           if (!this._touchEndPending) {
