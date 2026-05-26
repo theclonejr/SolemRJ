@@ -52,6 +52,8 @@ class QuantumEngine {
     this.scrollObj        = { progress: 0.0 };
     this.smoothedProgress = 0.0;
     this.activeStationIdx = 0;
+    this.transitionFrom   = 0;
+    this.transitionTo     = 0;
     this.currentTab       = 'training';
     this.lastTransitionTime = 0; // Cooldown timer to prevent inertial wheel/touch events from skipping slides
 
@@ -651,32 +653,30 @@ class QuantumEngine {
     this.smoothedProgress += (this.scrollObj.progress - this.smoothedProgress) * lerpSpeed;
     let progress = this.smoothedProgress;
 
-    // Snapping the progress state to fully composed shapes at slide rest points
-    const snapPoints = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0];
-    for (let i = 0; i < snapPoints.length; i++) {
-      if (Math.abs(progress - snapPoints[i]) < 0.008) {
-        progress = snapPoints[i];
-        break;
-      }
-    }
+    // Use transitionFrom and transitionTo to dynamically compute transition parameters
+    let idxA = this.transitionFrom !== undefined ? this.transitionFrom : 0;
+    let idxB = this.transitionTo !== undefined ? this.transitionTo : 0;
 
-    const INTERVAL = 0.2;
-    let idx = Math.min(4, Math.floor(progress / INTERVAL));
-    let t   = (progress % INTERVAL) / INTERVAL;
-    if (progress >= 1.0) { idx = 4; t = 1.0; }
+    let t = 1.0;
+    if (idxA !== idxB) {
+      const pA = idxA * 0.2;
+      const pB = idxB * 0.2;
+      t = (progress - pA) / (pB - pA);
+      t = Math.max(0.0, Math.min(1.0, t)); // Clamp transition progress to [0.0, 1.0]
+    }
 
     // High-Velocity Exponential Explosion & Snappy Spring Regrouping
     let t_blend = 0;
     let ep = 0;
-    if (t < 0.4) {
+    if (t < 0.35) {
       t_blend = 0.0;
-      const t_exp = t / 0.4;
-      // Aggressive exponential ease-out blast
-      ep = Math.pow(1.0 - t_exp, 3.0) * 18.0;
+      const t_exp = t / 0.35;
+      // Slower, smoother, and more professional explosion decay (power 2 instead of 3, lower peak)
+      ep = Math.pow(1.0 - t_exp, 2.0) * 8.0;
     } else {
-      const t_norm = (t - 0.4) / 0.6;
-      // Snappy micro-spring / magnetic attraction curve
-      t_blend = 1.0 - Math.exp(-8.0 * t_norm) * Math.cos(2.0 * Math.PI * t_norm);
+      const t_norm = (t - 0.35) / 0.65;
+      // High-end spring attraction for organic convergence (slower damping, wider frequency)
+      t_blend = 1.0 - Math.exp(-6.0 * t_norm) * Math.cos(1.5 * Math.PI * t_norm);
       ep = 0.0;
     }
 
@@ -696,11 +696,11 @@ class QuantumEngine {
 
       // Coordenada de Origen (Estación A)
       let xA=0, yA=0, zA=0;
-      this.computeCoord(idx, i, i3, elapsed, (x,y,z)=>{ xA=x; yA=y; zA=z; });
+      this.computeCoord(idxA, i, i3, elapsed, (x,y,z)=>{ xA=x; yA=y; zA=z; });
 
       // Coordenada de Destino (Estación B)
       let xB=xA, yB=yA, zB=zA;
-      this.computeCoord(idx+1, i, i3, elapsed, (x,y,z)=>{ xB=x; yB=y; zB=z; });
+      this.computeCoord(idxB, i, i3, elapsed, (x,y,z)=>{ xB=x; yB=y; zB=z; });
 
       // Spring-physics interpolation A → B
       let rx = xA + (xB - xA) * t_blend;
@@ -711,8 +711,8 @@ class QuantumEngine {
       if (ep > 0.001) {
         const len = Math.sqrt(rx*rx + ry*ry + rz*rz) || 1;
         const pf  = 0.82 + this.breathAmp[i] * 4.8;
-        const push = ep * 8.5 * pf;
-        const turb = ep * 4.2 * pf;
+        const push = ep * 5.0 * pf;
+        const turb = ep * 2.5 * pf;
         rx += (rx/len) * push + this.randomDirs[i3]   * turb;
         ry += (ry/len) * push + this.randomDirs[i3+1] * turb;
         rz += (rz/len) * push + this.randomDirs[i3+2] * turb;
@@ -769,7 +769,7 @@ class QuantumEngine {
     }
 
     posAttr.needsUpdate = true;
-    this.updateSystemLayoutPosition(idx, t);
+    this.updateSystemLayoutPosition(idxA, idxB, t);
 
     // ── DIRECTIVE 3: Infinite ping-pong sine-wave oscillator for depth BG ──
     // bgOscTime grows each frame by a fixed step, driving a sin() wave that
@@ -783,6 +783,93 @@ class QuantumEngine {
     }
 
     this.renderer.render(this.scene, this.camera);
+  }
+
+  // Calcula coordenadas de una estación con callback (evita objetos temporales en hot path)
+  computeCoord(stationIdx, i, i3, elapsed, cb) {
+    let x = 0, y = 0, z = 0;
+
+    if (stationIdx === 0) {
+      x = this.posRocket[i3]; y = this.posRocket[i3+1]; z = this.posRocket[i3+2];
+
+    } else if (stationIdx === 1) {
+      x = this.posWeb[i3]; y = this.posWeb[i3+1]; z = this.posWeb[i3+2];
+
+    } else if (stationIdx === 2) {
+      const gId = this.gearIds[i], r = this.gearRadii[i], bA = this.gearAngles[i];
+      let cx, cy, rotS;
+      if      (gId === 0) { cx = -1.2; cy =  0.8; rotS =  elapsed * 1.4; }
+      else if (gId === 1) { cx =  1.2; cy = -0.2; rotS = -elapsed * 1.05; }
+      else                { cx = -0.8; cy = -1.8; rotS =  elapsed * 1.4; }
+      const ang = bA + rotS;
+      x = cx + r * Math.cos(ang); y = cy + r * Math.sin(ang); z = this.gearHeights[i];
+
+    } else if (stationIdx === 3) {
+      const bx = this.posMkt[i3], by = this.posMkt[i3+1], bz = this.posMkt[i3+2];
+      const rotSpeed = elapsed * 0.15; // Slow professional rotation
+      x = bx * Math.cos(rotSpeed) - bz * Math.sin(rotSpeed);
+      y = by;
+      z = bx * Math.sin(rotSpeed) + bz * Math.cos(rotSpeed);
+
+    } else if (stationIdx === 4) {
+      const gType = this.constelTypes[i];
+      const bx = this.posCap[i3], by = this.posCap[i3+1], bz = this.posCap[i3+2];
+      // Eje de rotación varía con el panel del carrusel activo (+30° por panel)
+      const carBias = this.carouselIndex * (Math.PI / 6);
+
+      if (gType === 0) {
+        const a = elapsed * 0.12 + carBias * 0.3;
+        x = bx*Math.cos(a) - bz*Math.sin(a); y = by; z = bx*Math.sin(a) + bz*Math.cos(a);
+      } else if (gType === 1) {
+        const a = elapsed * 1.2 + carBias;
+        x = bx*Math.cos(a) - by*Math.sin(a); y = bx*Math.sin(a) + by*Math.cos(a); z = bz;
+      } else if (gType === 2) {
+        const a = elapsed * 1.2;
+        x = bx; y = by*Math.cos(a) - bz*Math.sin(a); z = by*Math.sin(a) + bz*Math.cos(a);
+      } else if (gType === 3) {
+        const a = elapsed * 1.2 - carBias;
+        x = bx*Math.cos(a) - bz*Math.sin(a); y = by; z = bx*Math.sin(a) + bz*Math.cos(a);
+      } else {
+        const aY = elapsed * 0.18 + carBias * 0.5, aX = elapsed * 0.10;
+        const rx2 = bx*Math.cos(aY) - bz*Math.sin(aY), rz2 = bx*Math.sin(aY) + bz*Math.cos(aY);
+        x = rx2; y = by*Math.cos(aX) - rz2*Math.sin(aX); z = by*Math.sin(aX) + rz2*Math.cos(aX);
+      }
+
+    } else if (stationIdx === 5) {
+      const rx0 = this.posContact[i3], rz0 = this.posContact[i3+2];
+      const rr  = Math.sqrt(rx0*rx0 + rz0*rz0);
+      const rot = elapsed * 0.75 * (1.2 / (rr + 0.25));
+      x = rx0*Math.cos(rot) - rz0*Math.sin(rot); y = this.posContact[i3+1]; z = rx0*Math.sin(rot) + rz0*Math.cos(rot);
+
+    } else {
+      x = this.posContact[i3]; y = this.posContact[i3+1]; z = this.posContact[i3+2];
+    }
+    cb(x, y, z);
+  }
+
+  // ====================================================================
+  // 5. POSICIONAMIENTO DINÁMICO DEL SISTEMA 3D
+  // ====================================================================
+  updateSystemLayoutPosition(idxA, idxB, t) {
+    const isDesktop = window.innerWidth >= 1024;
+    let tX = 0, tY = 0, tScale = 1.0;
+
+    if (isDesktop) {
+      const offsetsX = [2.5, -2.5, 2.5, -2.5, 2.5, 0.0];
+      tX = offsetsX[idxA] + (offsetsX[idxB] - offsetsX[idxA]) * t;
+    } else {
+      // ── DIRECTIVE 2: Mobile scale matrix — shapes are smaller companions ──
+      // oY raised to push geometry higher into the upper quadrant (more sky room for text).
+      // Scales reduced from 0.52 → 0.42 so typography dominates the lower 60% of viewport.
+      const oY     = [1.8, 1.8, 1.8, 1.8, 1.8, 0.0];
+      const scales = [0.42, 0.42, 0.42, 0.42, 0.42, 0.52];
+      tY     = oY[idxA]     + (oY[idxB]     - oY[idxA])     * t;
+      tScale = scales[idxA] + (scales[idxB] - scales[idxA]) * t;
+    }
+
+    this.points.position.x = THREE.MathUtils.lerp(this.points.position.x, tX, 0.07);
+    this.points.position.y = THREE.MathUtils.lerp(this.points.position.y, tY, 0.07);
+    this.points.scale.setScalar(THREE.MathUtils.lerp(this.points.scale.x, tScale, 0.07));
   }
 
   // Calcula coordenadas de una estación con callback (evita objetos temporales en hot path)
@@ -1207,11 +1294,14 @@ class QuantumEngine {
     this._gsapDone   = false;
     this.lastTransitionTime = Date.now();
 
+    this.transitionFrom = this.activeStationIdx;
+    this.transitionTo = targetIdx;
+
     const endProgress = targetIdx * 0.2;
 
     gsap.to(this.scrollObj, {
       progress: endProgress,
-      duration: 0.8,
+      duration: 1.2, // Slower, smoother, and more professional slide transition duration
       ease: 'none', // Easing is handled mathematically in rendering loop
       onUpdate: () => {
         this.updateActiveSlide(this.scrollObj.progress);
@@ -1219,6 +1309,8 @@ class QuantumEngine {
       onComplete: () => {
         this.scrollObj.progress = endProgress;
         this.smoothedProgress = endProgress;
+        this.transitionFrom = targetIdx;
+        this.transitionTo = targetIdx;
 
         if (tab) {
           const map = { training: 0, projects: 1, methodology: 2 };
