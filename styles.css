@@ -4,18 +4,26 @@
    ====================================================================== */
 
 :root {
-  --bg:            #000000;
-  --primary:       #00C8FF;   /* Cian Cuántico */
-  --primary-glow:  rgba(0,200,255,0.40);
-  --secondary:     #0055FF;   /* Azul Eléctrico */
-  --secondary-glow:rgba(0,85,255,0.38);
-  --accent:        #FF5E00;   /* Naranja Espacial */
-  --accent-glow:   rgba(255,94,0,0.35);
-  --gold:          #FFD700;
+  --bg:            #02080f;
+  --primary:       #00E5C3;   /* Mint Cuántico */
+  --primary-glow:  rgba(0,229,195,0.45);
+  --secondary:     #0097b2;   /* Teal Profundo */
+  --secondary-glow:rgba(0,151,178,0.40);
+  --accent:        #00ffcc;   /* Esmeralda Luminoso */
+  --accent-glow:   rgba(0,255,204,0.38);
+  --gold:          #7fffd4;   /* Aquamarine */
   --white:         #FFFFFF;
 
-  --text:          #F1F5F9;
-  --muted:         #7A8FA8;
+  /* Global text on dark background */
+  --text:          #e8f4f8;
+  --muted:         #6ea8be;
+
+  /* Card surface text — used when card has a light/gradient fill */
+  --card-text:     #0a1118;
+  --card-muted:    #1e3a45;
+  --card-bg-from:  #5ef0d4;  /* Mint start */
+  --card-bg-via:   #00c9a7;  /* Teal mid */
+  --card-bg-to:    #007a80;  /* Deep teal end */
 
   --font-title:    'Space Grotesk', sans-serif;
   --font-body:     'Outfit', sans-serif;
@@ -91,7 +99,7 @@ body {
 .navbar.scrolled {
   padding: 0.7rem 0;
   background: rgba(0,0,0,0.88);
-  border-bottom-color: rgba(0,200,255,0.16);
+  border-bottom-color: rgba(0, 229, 195, 0.16);
   box-shadow: 0 6px 28px rgba(0,0,0,0.65);
 }
 
@@ -149,19 +157,19 @@ body {
 }
 
 .nav-link:hover,
-.nav-link.active { color: var(--text); text-shadow: 0 0 12px rgba(0,200,255,0.3); }
+.nav-link.active { color: var(--text); text-shadow: 0 0 12px var(--primary-glow); }
 .nav-link:hover::after,
 .nav-link.active::after { width: 100%; }
 
 .nav-cta {
-  background: rgba(0, 200, 255, 0.06);
+  background: rgba(0, 229, 195, 0.06);
   color: var(--primary);
   font-weight: 700;
   font-size: 0.88rem;
   padding: 0.65rem 1.35rem;
   border-radius: 8px;
   text-decoration: none;
-  border: 1px solid rgba(0, 200, 255, 0.35);
+  border: 1px solid rgba(0, 229, 195, 0.35);
   cursor: pointer;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -189,7 +197,7 @@ body {
 .nav-cta.active {
   color: #fff;
   border-color: var(--primary);
-  box-shadow: 0 0 20px rgba(0, 200, 255, 0.25);
+  box-shadow: 0 0 20px var(--primary-glow);
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
 }
 
@@ -287,41 +295,54 @@ body {
    ====================================================================== */
 .scroll-card {
   position: relative;
-  background: rgba(10, 10, 15, 0.25);
-  backdrop-filter: blur(24px) saturate(130%);
-  -webkit-backdrop-filter: blur(24px) saturate(130%);
-  border-radius: 12px;
+  /* Vibrant mint→teal gradient fill — light opaque surface */
+  background: linear-gradient(
+    145deg,
+    var(--card-bg-from) 0%,
+    var(--card-bg-via) 52%,
+    var(--card-bg-to)  100%
+  );
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: 16px;
   padding: clamp(2.5rem, 6vh, 4rem) clamp(2rem, 4vw, 3rem) clamp(2rem, 5vh, 3.5rem) clamp(2rem, 4vw, 3rem);
   width: 100%;
   max-width: clamp(340px, 44vw, 540px);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4),
-              inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transition: border-color 0.4s var(--ease-smooth), box-shadow 0.4s var(--ease-smooth);
+  border: none;
+  box-shadow:
+    0 32px 72px rgba(0, 180, 140, 0.32),
+    0  8px 24px rgba(0,  50,  60, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition:
+    transform          0.4s var(--ease-smooth),
+    box-shadow         0.4s var(--ease-smooth);
 }
 
-/* Línea superior de neón sutil (top accent) */
+/* Luminous top-edge highlight on the gradient card */
 .scroll-card::before {
   content: '';
   position: absolute;
-  top: -1px; left: 24px;
-  width: 45px; height: 2px;
-  background: linear-gradient(90deg, var(--primary), transparent);
-  transition: width 0.4s var(--ease-smooth);
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: 16px 16px 0 0;
+  background: linear-gradient(90deg, rgba(255,255,255,0.65), rgba(255,255,255,0.05));
+  transition: opacity 0.4s var(--ease-smooth);
+  opacity: 0.8;
 }
 
 .scroll-card:hover {
-  border-color: rgba(0, 200, 255, 0.25);
-  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6),
-              0 0 30px rgba(0, 200, 255, 0.05),
-              inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(-3px);
+  box-shadow:
+    0 44px 90px rgba(0, 200, 160, 0.40),
+    0 12px 32px rgba(0,  50,  60, 0.60),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .scroll-card:hover::before {
-  width: 65px;
+  opacity: 1;
 }
 
 /* Hero — sin tarjeta, contenido flotante puro */
@@ -335,21 +356,32 @@ body {
 /* ======================================================================
    TIPOGRAFÍA E ÍNDICE CÓSMICO
    ====================================================================== */
+/* ── Badge: default (hero / dark background) ── */
 .station-badge {
   display: inline-flex;
   align-self: flex-start;
   font-family: var(--font-title);
   font-size: clamp(0.62rem, 1.2vh, 0.72rem);
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 3px;
   color: var(--primary);
-  background: rgba(0,200,255,0.07);
-  border: 1px solid rgba(0,200,255,0.18);
+  background: rgba(0,229,195,0.10);
+  border: 1px solid rgba(0,229,195,0.30);
   padding: 0.3rem 0.85rem;
   border-radius: 50px;
   margin-bottom: clamp(0.7rem, 2vh, 1.1rem);
-  text-shadow: 0 0 8px rgba(0,200,255,0.2);
+  text-shadow: 0 0 10px rgba(0,229,195,0.35);
+}
+
+/* ── Badge: inside gradient cards — dark-on-light variant ── */
+.scroll-card .station-badge,
+.carousel-panel .station-badge {
+  color: #003a40;
+  background: rgba(0, 80, 70, 0.15);
+  border-color: rgba(0, 60, 55, 0.35);
+  text-shadow: none;
+  letter-spacing: 2.5px;
 }
 
 .hero-title {
@@ -370,10 +402,22 @@ body {
   letter-spacing: -0.03em;
 }
 
+/* text-gradient: hero / dark-bg usage — unchanged */
 .text-gradient {
-  background: linear-gradient(135deg, #fff 30%, #c7d2fe 68%, var(--primary) 100%);
+  background: linear-gradient(135deg, #fff 30%, #a7f3e4 68%, var(--primary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* ── Inside gradient cards: override gradient text to solid dark ink ── */
+.scroll-card .card-title,
+.carousel-panel .card-title {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: var(--card-text);
+  color: var(--card-text);
+  font-weight: 800;
+  letter-spacing: -0.035em;
 }
 
 .hero-text {
@@ -390,6 +434,12 @@ body {
   color: var(--muted);
   margin-bottom: clamp(0.9rem, 2.2vh, 1.35rem);
   letter-spacing: 0.01em;
+}
+
+/* ── Inside gradient cards: body text to dark slate ── */
+.scroll-card .card-text,
+.carousel-panel .card-text {
+  color: var(--card-muted);
 }
 
 .card-bullets {
@@ -409,12 +459,25 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* ── Inside gradient cards: bullet text dark ── */
+.scroll-card .card-bullets li,
+.carousel-panel .card-bullets li {
+  color: var(--card-text);
+}
+
 .bullet-icon {
   width: 13px; height: 13px;
   color: var(--primary);
   flex-shrink: 0;
   margin-top: 4px;
   filter: drop-shadow(0 0 4px var(--primary-glow));
+}
+
+/* ── Inside gradient cards: bullet icon dark teal ── */
+.scroll-card .bullet-icon,
+.carousel-panel .bullet-icon {
+  color: #003a40;
+  filter: none;
 }
 
 .hero-actions, .card-actions {
@@ -446,10 +509,10 @@ body {
 }
 
 .btn-primary {
-  background: rgba(0, 200, 255, 0.06);
+  background: rgba(0, 229, 195, 0.08);
   color: var(--primary);
-  border: 1px solid rgba(0, 200, 255, 0.3);
-  box-shadow: 0 4px 20px rgba(0, 200, 255, 0.05);
+  border: 1px solid rgba(0, 229, 195, 0.35);
+  box-shadow: 0 4px 20px rgba(0, 229, 195, 0.06);
 }
 
 .btn-primary::before {
@@ -463,21 +526,37 @@ body {
 }
 
 .btn-primary:hover::before {
-  opacity: 0.15;
+  opacity: 0.18;
 }
 
 .btn-primary:hover {
   color: #fff;
   border-color: var(--primary);
-  box-shadow: 0 0 25px rgba(0, 200, 255, 0.25);
+  box-shadow: 0 0 28px rgba(0, 229, 195, 0.30);
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
 }
 
+/* ── Inside gradient cards: btn-primary flips to dark solid ── */
+.scroll-card .btn-primary,
+.carousel-panel .btn-primary {
+  background: rgba(0, 40, 45, 0.88);
+  color: var(--primary);
+  border: 1px solid rgba(0, 229, 195, 0.50);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.scroll-card .btn-primary:hover,
+.carousel-panel .btn-primary:hover {
+  background: rgba(0, 60, 65, 0.96);
+  color: #fff;
+  box-shadow: 0 0 22px rgba(0, 229, 195, 0.30);
+}
+
 .btn-hero-primary {
-  border: 1px solid rgba(0, 200, 255, 0.5) !important;
+  border: 1px solid rgba(0, 229, 195, 0.55) !important;
   color: var(--primary) !important;
-  background: rgba(0, 200, 255, 0.03);
-  box-shadow: 0 0 15px rgba(0, 200, 255, 0.05);
+  background: rgba(0, 229, 195, 0.04);
+  box-shadow: 0 0 15px rgba(0, 229, 195, 0.06);
 }
 
 .btn-hero-primary::before {
@@ -491,18 +570,18 @@ body {
 }
 
 .btn-hero-primary:hover::before {
-  opacity: 0.12;
+  opacity: 0.14;
 }
 
 .btn-hero-primary:hover {
   color: #fff !important;
-  box-shadow: 0 0 25px rgba(0, 200, 255, 0.25);
+  box-shadow: 0 0 28px rgba(0, 229, 195, 0.28);
   border-color: var(--primary) !important;
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
 }
 
 .btn-hero-secondary {
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
   color: var(--text) !important;
   background: rgba(255, 255, 255, 0.01);
 }
@@ -522,7 +601,7 @@ body {
 }
 
 .btn-hero-secondary:hover {
-  border-color: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.38) !important;
   color: #fff !important;
 }
 
@@ -582,43 +661,51 @@ body {
   will-change: transform;
 }
 
-/* Panel individual — editorial limpio */
+/* Panel individual — gradient fill matching scroll-card aesthetic */
 .carousel-panel {
   width: 33.333%;
   flex-shrink: 0;
-  /* Diseño editorial: acento lateral + espacio abierto */
   padding: clamp(1.6rem, 4vh, 2.8rem) clamp(1.4rem, 3vw, 2.4rem);
   padding-left: clamp(1.6rem, 3vw, 2.4rem);
-  border-left: 1.5px solid rgba(0,200,255,0.3);
-  border-top: 1px solid rgba(0,200,255,0.08);
+  border-left: 2px solid rgba(0,229,195,0.42);
+  border-top: none;
+  border-radius: 0 12px 12px 0;
   position: relative;
-  background: rgba(0,0,5,0.12);
+  background: linear-gradient(
+    148deg,
+    var(--card-bg-from) 0%,
+    var(--card-bg-via)  55%,
+    var(--card-bg-to)   100%
+  );
+  box-shadow:
+    0 24px 56px rgba(0, 160, 130, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
 .carousel-panel::before {
   content: '';
   position: absolute;
   top: 0; left: 0;
-  width: 50%; height: 1px;
-  background: linear-gradient(90deg, var(--primary), transparent);
-  opacity: 0.45;
+  width: 50%; height: 2px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.55), transparent);
+  opacity: 0.9;
 }
 
 /* Hint de scroll en los paneles 1 y 2 */
 .scroll-hint {
   font-family: var(--font-title);
   font-size: 0.7rem;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 2px;
-  color: rgba(0,200,255,0.38);
+  color: rgba(0, 60, 55, 0.65);
   margin-top: 1.2rem;
   animation: pulse-hint 2.4s ease-in-out infinite;
 }
 
 @keyframes pulse-hint {
-  0%, 100% { opacity: 0.38; }
-  50%       { opacity: 0.72; }
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 0.90; }
 }
 
 /* Controles del carrusel */
@@ -632,8 +719,8 @@ body {
 .carr-btn {
   width: 36px; height: 36px;
   border-radius: 50%;
-  border: 1px solid rgba(0,200,255,0.22);
-  background: rgba(0,200,255,0.05);
+  border: 1px solid rgba(0,229,195,0.30);
+  background: rgba(0,229,195,0.06);
   color: var(--primary);
   font-size: 1.25rem;
   line-height: 1;
@@ -645,9 +732,9 @@ body {
 }
 
 .carr-btn:hover {
-  background: rgba(0,200,255,0.14);
+  background: rgba(0,229,195,0.16);
   border-color: var(--primary);
-  box-shadow: 0 0 12px var(--primary-glow);
+  box-shadow: 0 0 14px var(--primary-glow);
   transform: scale(1.08);
 }
 
@@ -662,7 +749,7 @@ body {
   width: 6px; height: 6px;
   border-radius: 50%;
   border: none;
-  background: rgba(0,200,255,0.25);
+  background: rgba(0,229,195,0.28);
   cursor: pointer;
   transition: all 0.4s var(--ease-smooth);
   padding: 0;
@@ -685,24 +772,50 @@ body {
   width: 100%;
   height: 100vh;
   padding: 85px 1.5rem 1.5rem;
+  /* Tier 3 — Stacking context isolation: form layer owns its own compositing plane */
+  isolation: isolate;
+  position: relative;
+  z-index: 10;
+}
+
+/* Tier 3 — Radial vignette that darkens the particle field behind the form card.
+   Uses a ::before pseudo-element on the wrapper so it sits above the canvas
+   (z-index 1) but below the card content (z-index auto inside isolate). */
+.contact-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 72% 55% at 50% 48%,
+    rgba(0, 2, 10, 0.72) 0%,
+    rgba(0, 2, 10, 0.42) 52%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: -1;
 }
 
 .sculpted-glass-heavy {
-  background: rgba(0, 2, 8, 0.30);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  /* Tier 1 — Glassmorphism: opacity raised from 0.30 → 0.72 + heavier blur
+     pushes the particle layer into a perceptually deeper background plane. */
+  background: rgba(2, 6, 18, 0.72);
+  backdrop-filter: blur(40px) saturate(160%) brightness(0.82);
+  -webkit-backdrop-filter: blur(40px) saturate(160%) brightness(0.82);
   border: 1px solid rgba(255,255,255,0.10);
-  border-top: 1px solid rgba(0,200,255,0.22);
-  border-left: 1px solid rgba(0,200,255,0.12);
-  border-radius: 4px;
+  border-top: 1px solid rgba(0, 229, 195, 0.30);
+  border-left: 1px solid rgba(0, 229, 195, 0.16);
+  border-radius: 6px;
   padding: clamp(1.2rem, 3vh, 2.4rem);
   width: 100%;
   max-width: 660px;
   margin: auto 0;
   box-shadow:
-    0 40px 80px rgba(0,0,0,0.92),
-    0 0 36px rgba(0,200,255,0.10);
+    0 40px 90px rgba(0, 0, 0, 0.96),
+    0 0 48px rgba(0, 229, 195, 0.08),
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset 0 0 32px rgba(0, 2, 12, 0.60);
   position: relative;
+  z-index: 1;
 }
 
 .sculpted-glass-heavy::before {
@@ -747,22 +860,48 @@ body {
 
 .form-group input,
 .form-group textarea {
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
+  /* Tier 2 — Solid opaque fill: eliminates particle bleed-through completely.
+     High-contrast dark background + explicit white text = WCAG AA at any z-layer. */
+  background: rgba(8, 14, 26, 0.92);
+  border: 1px solid rgba(0, 229, 195, 0.28);
   border-radius: 4px;
   padding: 0.75rem 1rem;
-  color: var(--text);
+  color: #F1F5F9;
   font-family: var(--font-body);
   font-size: 0.9rem;
-  transition: all 0.35s var(--ease-smooth);
+  transition: border-color 0.3s var(--ease-smooth),
+              box-shadow   0.3s var(--ease-smooth),
+              background   0.3s var(--ease-smooth);
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.55);
+  /* Prevent WebKit from overriding autofill with its own semi-transparent tint */
+  -webkit-text-fill-color: #F1F5F9;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: rgba(122, 143, 168, 0.65);
+  -webkit-text-fill-color: rgba(122, 143, 168, 0.65);
+}
+
+/* Autofill override — keeps dark fill intact when browser auto-fills fields */
+.form-group input:-webkit-autofill,
+.form-group input:-webkit-autofill:hover,
+.form-group input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px rgba(8, 14, 26, 0.98) inset;
+  -webkit-text-fill-color: #F1F5F9;
+  caret-color: #F1F5F9;
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
   border-color: var(--primary);
-  background: rgba(0,200,255,0.03);
-  box-shadow: 0 0 14px rgba(0,200,255,0.15);
+  background: rgba(4, 12, 30, 0.96);
+  box-shadow:
+    inset 0 1px 4px rgba(0, 0, 0, 0.65),
+    0 0 0 2px rgba(0, 229, 195, 0.12),
+    0 0 18px rgba(0, 229, 195, 0.18);
   outline: none;
+  -webkit-text-fill-color: #F1F5F9;
 }
 
 .btn-submit { width: 100%; padding: 0.82rem; border-radius: 4px; border: none; }
@@ -933,7 +1072,7 @@ body {
     min-width: 44px;
     min-height: 44px;
     border-radius: 50%;
-    border: 1.5px solid rgba(0,200,255,0.35);
+    border: 1.5px solid rgba(0, 229, 195, 0.35);
     background: rgba(0,0,0,0.55);     /* dark fill ensures visibility on all bg */
     color: var(--primary);
     font-size: 1.35rem;
@@ -950,7 +1089,7 @@ body {
   }
 
   .carr-btn:active {
-    background: rgba(0,200,255,0.18);
+    background: rgba(0, 229, 195, 0.18);
     border-color: var(--primary);
   }
 

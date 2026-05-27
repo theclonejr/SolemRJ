@@ -148,17 +148,18 @@ class QuantumEngine {
 
   // Textura radial espacial — sin fucsia
   createParticleTexture() {
-    const size = 96;
+    const size = 128;
     const c    = document.createElement('canvas');
     c.width    = c.height = size;
     const ctx  = c.getContext('2d');
     const half = size / 2;
+    // Emerald-teal-mint glow core matching the organic wave mockup
     const g    = ctx.createRadialGradient(half, half, 0, half, half, half);
-    g.addColorStop(0,    'rgba(255,255,255,1.0)');
-    g.addColorStop(0.07, 'rgba(255,255,255,0.98)');
-    g.addColorStop(0.22, 'rgba(140,220,255,0.88)');
-    g.addColorStop(0.50, 'rgba(0,120,255,0.40)');
-    g.addColorStop(0.82, 'rgba(255,110,0,0.10)');
+    g.addColorStop(0,    'rgba(255,255,255,1.00)');  // Pure white hot core
+    g.addColorStop(0.06, 'rgba(210,255,245,0.98)');  // Near-white mint
+    g.addColorStop(0.18, 'rgba(0,229,195,0.92)');    // Mint-teal primary
+    g.addColorStop(0.40, 'rgba(0,180,160,0.55)');    // Deep teal mid
+    g.addColorStop(0.70, 'rgba(0,100,120,0.18)');    // Cold teal fade
     g.addColorStop(1,    'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, size, size);
@@ -197,81 +198,58 @@ class QuantumEngine {
     }
 
     // ------------------------------------------------------------------
-    // ESTACIÓN 0 — COHETE ESPACIAL ESTILIZADO (Proporcional para Mobile/Desktop)
+    // ESTACIÓN 0 — ORGANIC ENERGY WAVE FIELD (Fluid Teal Cosmos)
+    // Three superimposed sine/cosine planes with radial density falloff,
+    // producing the expansive luminous wave seen in the target mockup.
     // ------------------------------------------------------------------
-    const noseLimit = Math.floor(N * 0.18);
-    const bodyLimit = Math.floor(N * 0.48);
-    const finsLimit = Math.floor(N * 0.64);
-    const nozLimit  = Math.floor(N * 0.74);
+    const WX = 5.5;   // Half-width of the wave field in world units
+    const WY = 3.2;   // Half-height of the wave field
 
     for (let i = 0; i < N; i++) {
-      let x = 0, y = 0, z = 0;
+      // Base grid position with jitter
+      const fx = (Math.random() - 0.5) * WX * 2;
+      const fy = (Math.random() - 0.5) * WY * 2;
 
-      if (i < noseLimit) {
-        // Cono de nariz aerodinámico (punta aguda)
-        const h      = Math.pow(Math.random(), 0.65); // Más denso en la base del cono
-        const coneR  = (1 - h) * 0.36;
-        const ang    = Math.random() * Math.PI * 2;
-        x = (coneR + (Math.random() - 0.5) * 0.025) * Math.cos(ang);
-        z = (coneR + (Math.random() - 0.5) * 0.025) * Math.sin(ang);
-        y = 2.3 + h * 1.6;  // Y: 2.3 (base cono) → 3.9 (punta)
+      // Layer index determines which wave harmonic this particle follows
+      const layer = i % 3;
 
-      } else if (i < bodyLimit) {
-        // Cuerpo cilíndrico delgado y largo
-        const ang    = Math.random() * Math.PI * 2;
-        const isOuter= Math.random() < 0.82;
-        const r      = isOuter ? 0.34 + (Math.random() - 0.5) * 0.03 : Math.random() * 0.26;
-        y = -1.7 + Math.random() * 4.0;
-        x = r * Math.cos(ang);
-        z = r * Math.sin(ang);
+      let x, y, z;
 
-      } else if (i < finsLimit) {
-        // Alerones triangulares con sweepback (3 aletas)
-        const finIdx  = Math.floor(Math.random() * 3);
-        const baseAng = (finIdx / 3) * Math.PI * 2;
-        const finW    = Math.random(); // 0=inner 1=tip
-        const finH    = Math.random(); // 0=top 1=bottom
-        const outerR  = 0.34 + finW * 1.10;
-        const finY    = -1.7 - finH * 1.25;
-        const swpAng  = baseAng + finW * 0.40; // Sweepback
-        x = outerR * Math.cos(swpAng + (Math.random() - 0.5) * 0.15);
-        z = outerR * Math.sin(swpAng + (Math.random() - 0.5) * 0.15);
-        y = finY;
-
-      } else if (i < nozLimit) {
-        // Tobera de motor (campana pronunciada)
-        const nH  = Math.pow(Math.random(), 0.45);
-        const nR  = 0.10 + nH * 0.56;
-        const nAng= Math.random() * Math.PI * 2;
-        x = nR * Math.cos(nAng);
-        z = nR * Math.sin(nAng);
-        y = -2.95 - nH * 0.40;
-
+      if (layer === 0) {
+        // Primary wave: broad lateral sweep, dominant crest
+        const waveAmp = 0.85 + Math.random() * 0.55;
+        const freq    = 0.62 + Math.random() * 0.28;
+        x = fx;
+        y = fy + Math.sin(fx * freq)       * waveAmp
+               + Math.cos(fx * freq * 0.5) * waveAmp * 0.45;
+        z = (Math.random() - 0.5) * 1.20;
+      } else if (layer === 1) {
+        // Secondary wave: tighter frequency, offset phase — creates depth layering
+        const waveAmp = 0.55 + Math.random() * 0.45;
+        const freq    = 1.10 + Math.random() * 0.40;
+        x = fx;
+        y = fy + Math.sin(fx * freq + Math.PI * 0.62) * waveAmp
+               + Math.cos(fy * 0.35)                  * waveAmp * 0.30;
+        z = (Math.random() - 0.5) * 1.80 - 0.6;
       } else {
-        // Estela de propulsión — cola de fuego
-        const ex    = Math.pow(Math.random(), 0.55);
-        const exAng = Math.random() * Math.PI * 2;
-        const exR   = Math.random() * (0.28 + ex * 0.90);
-        const exY   = -3.38 - ex * 2.1;
-        const sctr  = (Math.random() - 0.5) * ex * 0.65;
-        x = exR * Math.cos(exAng) + sctr;
-        z = exR * Math.sin(exAng) + sctr;
-        y = exY;
+        // Tertiary scatter: sparse outer halo giving cosmic density profile
+        const r   = Math.pow(Math.random(), 0.55) * WX;
+        const ang = Math.random() * Math.PI * 2;
+        x = r * Math.cos(ang);
+        y = r * Math.sin(ang) * 0.55;  // flattened to an ellipse
+        z = (Math.random() - 0.5) * 2.4;
+      }
+
+      // Radial density weight: concentrate particles near the centre crest
+      const density = Math.exp(-0.18 * (x * x + y * y * 0.4));
+      if (Math.random() > density + 0.12 && layer !== 2) {
+        // Sparsify outer regions for a natural density gradient
+        x *= 1.35; y *= 1.10;
       }
 
       this.posRocket[i*3]   = x;
       this.posRocket[i*3+1] = y;
       this.posRocket[i*3+2] = z;
-    }
-
-    // Rotar todo el cohete -45° en Z → inclinación diagonal (apunta hacia arriba-derecha)
-    const cosA = Math.cos(-Math.PI / 4);
-    const sinA = Math.sin(-Math.PI / 4);
-    for (let i = 0; i < N; i++) {
-      const ox = this.posRocket[i*3];
-      const oy = this.posRocket[i*3+1];
-      this.posRocket[i*3]   = ox * cosA - oy * sinA;
-      this.posRocket[i*3+1] = ox * sinA + oy * cosA;
     }
 
     // ------------------------------------------------------------------
@@ -554,16 +532,16 @@ class QuantumEngine {
     initPos.set(this.posRocket);
     this.geometry.setAttribute('position', new THREE.BufferAttribute(initPos, 3));
 
-    // Paleta: Azul Eléctrico · Cian Cuántico · Naranja Espacial · Blanco Estelar
-    // SIN fucsias ni rosas — espectro frío-cálido controlado
+    // Palette: deep teal, bright mint, emerald, luminous white — full turquoise/emerald spectrum
+    // Matches the organic cosmic wave glow of the target mockup (no orange/amber)
     const colors = new Float32Array(N * 3);
     const palette = [
-      new THREE.Color(0x0055FF), // Azul Eléctrico profundo
-      new THREE.Color(0x00C8FF), // Cian Cuántico
-      new THREE.Color(0xFF5E00), // Naranja Espacial Incandescente
-      new THREE.Color(0xFFFFFF), // Blanco Estelar
-      new THREE.Color(0x0088EE), // Cian-Azul medio
-      new THREE.Color(0xFFAA22)  // Ámbar Cósmico
+      new THREE.Color(0x00E5C3), // Mint Cuántico (primary)
+      new THREE.Color(0x00FFDD), // Luminous aquamarine
+      new THREE.Color(0x00C4A0), // Deep mint-teal
+      new THREE.Color(0xFFFFFF), // White stellar core
+      new THREE.Color(0x00A88E), // Teal profundo
+      new THREE.Color(0x7FFFD4)  // Aquamarine accent
     ];
     for (let i = 0; i < N; i++) {
       const c = palette[Math.floor(Math.random() * palette.length)];
@@ -572,7 +550,7 @@ class QuantumEngine {
     this.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
     this.material = new THREE.PointsMaterial({
-      size: 0.092,
+      size: 0.11,              // Slightly larger for denser emerald glow field
       sizeAttenuation: true,
       depthWrite: false,
       transparent: true,
@@ -599,14 +577,14 @@ class QuantumEngine {
     const bgPos = new Float32Array(BN * 3);
     const bgCol = new Float32Array(BN * 3);
 
-    // Galactic palette: dim amber, starlight pearl, cosmic dust blue — low intensity
+    // Depth starfield palette: cold emerald and teal tints — unified with primary spectrum
     const bgPalette = [
-      new THREE.Color(0x4a3010), // Deep space amber (dim)
-      new THREE.Color(0x3d3020), // Warm cosmic dust
-      new THREE.Color(0x8a7a60), // Starlight pearl (muted gold)
-      new THREE.Color(0x5a5060), // Distant nebula mauve
-      new THREE.Color(0x2a3040), // Cold deep-space blue
-      new THREE.Color(0x706050)  // Faint cosmic tan
+      new THREE.Color(0x003830), // Deep teal shadow
+      new THREE.Color(0x005048), // Muted emerald
+      new THREE.Color(0x007a6a), // Teal-emerald mid (brightened for depth)
+      new THREE.Color(0x00a08a), // Light seafoam (higher magnitude stars)
+      new THREE.Color(0x004850), // Cold oceanic deep
+      new THREE.Color(0x00605a)  // Faint teal-cyan
     ];
 
     for (let i = 0; i < BN; i++) {
@@ -800,7 +778,21 @@ class QuantumEngine {
     let x = 0, y = 0, z = 0;
 
     if (stationIdx === 0) {
-      x = this.posRocket[i3]; y = this.posRocket[i3+1]; z = this.posRocket[i3+2];
+      const bx = this.posRocket[i3];
+      const by = this.posRocket[i3+1];
+      const bz = this.posRocket[i3+2];
+      const layer = i % 3;
+      x = bx;
+      if (layer === 0) {
+        y = by + Math.sin(bx * 0.4 + elapsed * 1.4) * 0.16;
+        z = bz + Math.cos(bx * 0.5 + elapsed * 1.2) * 0.12;
+      } else if (layer === 1) {
+        y = by + Math.sin(bx * 0.95 + elapsed * 2.2) * 0.11;
+        z = bz + Math.cos(bx * 1.10 + elapsed * 1.9) * 0.08;
+      } else {
+        y = by + Math.sin(elapsed * 0.9 + i) * 0.08;
+        z = bz + Math.cos(elapsed * 0.75 + i) * 0.08;
+      }
 
     } else if (stationIdx === 1) {
       x = this.posWeb[i3]; y = this.posWeb[i3+1]; z = this.posWeb[i3+2];
@@ -878,15 +870,21 @@ class QuantumEngine {
     let tX = 0, tY = 0, tScale = 1.0;
 
     if (isDesktop) {
-      // Desktop: shapes alternate left/right beside the text cards
-      const offsetsX = [2.5, -2.5, 2.5, -2.5, 2.5, 0.0];
+      // Desktop: shapes alternate left/right beside the text cards.
+      // Station 5 (galaxy): X shifted to +3.5 to bow spiral arms elegantly
+      // to the RIGHT of the form card boundary, eliminating input occlusion.
+      // Y lifted +0.6 so galaxy mass clears the input row vertical zone.
+      const offsetsX = [2.5, -2.5, 2.5, -2.5, 2.5, 3.5];
+      const offsetsY = [0.0,  0.0,  0.0,  0.0,  0.0, 0.6];
       tX = offsetsX[idxA] + (offsetsX[idxB] - offsetsX[idxA]) * t;
+      tY = offsetsY[idxA] + (offsetsY[idxB] - offsetsY[idxA]) * t;
     } else {
       // ── Mobile: responsive Y offset derived from actual FOV + camera distance ──
       // This replaces the hardcoded 1.8 that only worked at one exact screen height.
       // Contact slide (idx 5) centres the galaxy (tY = 0).
       const topY   = this._mobileTopOffset();
-      const oY     = [topY, topY, topY, topY, topY, 0.0];
+      // Mobile station 5: add +0.5 Y lift to clear the input zone vertical band
+      const oY     = [topY, topY, topY, topY, topY, 0.5];
       // Scale shapes to occupy ~42% of world-space on standard mobile phones;
       // slightly larger (0.50) on the contact/galaxy slide for visual impact.
       const scales = [0.42, 0.42, 0.42, 0.42, 0.42, 0.50];
@@ -919,12 +917,14 @@ class QuantumEngine {
 
     // ── Desktop context ≥ 1024px ─────────────────────────────────────
     mm.add('(min-width: 1024px)', (ctx) => {
-      // Snap particle system to correct desktop X position immediately
-      const offsetsX = [2.5, -2.5, 2.5, -2.5, 2.5, 0.0];
+      // Snap particle system to correct desktop X/Y position immediately.
+      // Station 5 uses x=3.5, y=0.6 — matching the render-loop offset tables.
+      const offsetsX = [2.5, -2.5, 2.5, -2.5, 2.5, 3.5];
+      const offsetsY = [0.0,  0.0,  0.0,  0.0,  0.0, 0.6];
       const idx = this.activeStationIdx;
       gsap.to(this.points.position, {
         x: offsetsX[idx],
-        y: 0,
+        y: offsetsY[idx],
         duration: 0.4,
         ease: 'power2.out',
         overwrite: 'auto'
