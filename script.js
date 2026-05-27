@@ -12,9 +12,11 @@ class QuantumEngine {
     this.clock           = new THREE.Clock();
 
     // Detección de capacidad del dispositivo — ajusta la carga de GPU
-    const _isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-    const _isTablet = !_isMobile && window.innerWidth <= 1024;
-    this.PARTICLE_COUNT  = _isMobile ? 12000 : _isTablet ? 20000 : 30000;
+    // Stored as instance properties so the resize handler can update _frameLimit
+    // when the user crosses the mobile/desktop boundary (e.g. DevTools toggle).
+    this._isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    this._isTablet = !this._isMobile && window.innerWidth <= 1024;
+    this.PARTICLE_COUNT  = this._isMobile ? 12000 : this._isTablet ? 20000 : 30000;
     this.geometry        = null;
     this.material        = null;
     this.points          = null;
@@ -55,12 +57,22 @@ class QuantumEngine {
     this.transitionFrom   = 0;
     this.transitionTo     = 0;
     this.currentTab       = 'training';
-    this.lastTransitionTime = 0; // Cooldown timer to prevent inertial wheel/touch events from skipping slides
+    this.lastTransitionTime = 0;
+
+    // ── Navigation race-condition guards ───────────────────────────────────────────────────
+    // _pendingNav: last-click-wins queue. Instead of silently dropping rapid
+    //   clicks while isAnimating=true, we store the LAST requested destination
+    //   and replay it in the onComplete/setTimeout when the lock releases.
+    // _pendingTab: the carousel tab ({training|projects|methodology}) targeted
+    //   by the active navigateToSlide call. Visible to updateActiveSlide so it
+    //   can suppress the incorrect mid-tween auto-reset (goToCarouselCard(0)).
+    this._pendingNav      = null;  // { targetIdx, tab } | null
+    this._pendingTab      = null;  // string | null — set before GSAP tween starts
 
     // Carrusel Horizontal (Estación 4)
     this.carouselIndex    = 0;
     this.carouselLocked   = false;
-    this._noCarouselReset = false; // Guardia anti-recursión
+    this._noCarouselReset = false;
 
     // ── Global slide-lock (wheel + touch) ──
     // isAnimating = true during ANY GSAP slide transition.
@@ -84,7 +96,7 @@ class QuantumEngine {
 
     // Limitador de frame rate para móvil (30 FPS) — ahorra CPU/GPU en gama baja
     this._lastFrame   = 0;
-    this._frameLimit  = _isMobile ? 1000 / 30 : 0; // 0 = ilimitado en desktop
+    this._frameLimit  = this._isMobile ? 1000 / 30 : 0; // 0 = ilimitado en desktop
 
     // Mouse
     this.mouse       = new THREE.Vector2(9999, 9999);
@@ -648,8 +660,7 @@ class QuantumEngine {
     const elapsed = this.clock.getElapsedTime();
 
     // Lerp secundario: suaviza cualquier salto residual que supere el scrub de GSAP
-    const _isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-    const lerpSpeed = _isMobile ? 0.18 : 0.055; // Snappy convergence on mobile
+    const lerpSpeed = this._isMobile ? 0.18 : 0.055; // Snappy convergence on mobile
     this.smoothedProgress += (this.scrollObj.progress - this.smoothedProgress) * lerpSpeed;
     let progress = this.smoothedProgress;
 
@@ -728,9 +739,8 @@ class QuantumEngine {
       rz += (rz/nLen) * breath;
 
       // ── DIRECTIVE 2: Elastic spring-physics hover (replaces instant push) ──
-      // Particles glide away on hover and snap back via velocity-based spring.
-      // Only active when NOT in transition explosion phase.
-      if (ep < 0.08) {
+      // Skipped entirely on touch/mobile devices — no cursor exists, saves ~15ms/frame.
+      if (ep < 0.08 && !this._isMobile) {
         const localMouseX = this.mouseWorld.x - this.points.position.x;
         const localMouseY = this.mouseWorld.y - this.points.position.y;
         const hdx  = rx - localMouseX;
@@ -850,19 +860,36 @@ class QuantumEngine {
   // ====================================================================
   // 5. POSICIONAMIENTO DINÁMICO DEL SISTEMA 3D
   // ====================================================================
+  // ── Computes the world-space Y offset that places the shape in the upper
+  //    ~40% of the viewport on mobile. Uses the camera's FOV + distance to
+  //    derive how many world units equal a given fraction of the screen, so
+  //    the shape sits in the same visual region regardless of screen height.
+  _mobileTopOffset() {
+    // vFovHalf = half of the vertical FOV in radians
+    const vFovHalf = (this.camera.fov * Math.PI) / 360;
+    // worldHeight = total world-space height visible at z=0
+    const worldHeight = 2 * Math.tan(vFovHalf) * this.camera.position.z;
+    // Push shape up by ~28% of world height so it occupies the upper zone
+    return worldHeight * 0.28;
+  }
+
   updateSystemLayoutPosition(idxA, idxB, t) {
     const isDesktop = window.innerWidth >= 1024;
     let tX = 0, tY = 0, tScale = 1.0;
 
     if (isDesktop) {
+      // Desktop: shapes alternate left/right beside the text cards
       const offsetsX = [2.5, -2.5, 2.5, -2.5, 2.5, 0.0];
       tX = offsetsX[idxA] + (offsetsX[idxB] - offsetsX[idxA]) * t;
     } else {
-      // ── DIRECTIVE 2: Mobile scale matrix — shapes are smaller companions ──
-      // oY raised to push geometry higher into the upper quadrant (more sky room for text).
-      // Scales reduced from 0.52 → 0.42 so typography dominates the lower 60% of viewport.
-      const oY     = [1.8, 1.8, 1.8, 1.8, 1.8, 0.0];
-      const scales = [0.42, 0.42, 0.42, 0.42, 0.42, 0.52];
+      // ── Mobile: responsive Y offset derived from actual FOV + camera distance ──
+      // This replaces the hardcoded 1.8 that only worked at one exact screen height.
+      // Contact slide (idx 5) centres the galaxy (tY = 0).
+      const topY   = this._mobileTopOffset();
+      const oY     = [topY, topY, topY, topY, topY, 0.0];
+      // Scale shapes to occupy ~42% of world-space on standard mobile phones;
+      // slightly larger (0.50) on the contact/galaxy slide for visual impact.
+      const scales = [0.42, 0.42, 0.42, 0.42, 0.42, 0.50];
       tY     = oY[idxA]     + (oY[idxB]     - oY[idxA])     * t;
       tScale = scales[idxA] + (scales[idxB] - scales[idxA]) * t;
     }
@@ -872,100 +899,77 @@ class QuantumEngine {
     this.points.scale.setScalar(THREE.MathUtils.lerp(this.points.scale.x, tScale, 0.07));
   }
 
-  // Calcula coordenadas de una estación con callback (evita objetos temporales en hot path)
-  computeCoord(stationIdx, i, i3, elapsed, cb) {
-    let x = 0, y = 0, z = 0;
-
-    if (stationIdx === 0) {
-      x = this.posRocket[i3]; y = this.posRocket[i3+1]; z = this.posRocket[i3+2];
-
-    } else if (stationIdx === 1) {
-      x = this.posWeb[i3]; y = this.posWeb[i3+1]; z = this.posWeb[i3+2];
-
-    } else if (stationIdx === 2) {
-      const gId = this.gearIds[i], r = this.gearRadii[i], bA = this.gearAngles[i];
-      let cx, cy, rotS;
-      if      (gId === 0) { cx = -1.2; cy =  0.8; rotS =  elapsed * 1.4; }
-      else if (gId === 1) { cx =  1.2; cy = -0.2; rotS = -elapsed * 1.05; }
-      else                { cx = -0.8; cy = -1.8; rotS =  elapsed * 1.4; }
-      const ang = bA + rotS;
-      x = cx + r * Math.cos(ang); y = cy + r * Math.sin(ang); z = this.gearHeights[i];
-
-    } else if (stationIdx === 3) {
-      const bx = this.posMkt[i3], by = this.posMkt[i3+1], bz = this.posMkt[i3+2];
-      const rotSpeed = elapsed * 0.15; // Slow professional rotation
-      x = bx * Math.cos(rotSpeed) - bz * Math.sin(rotSpeed);
-      y = by;
-      z = bx * Math.sin(rotSpeed) + bz * Math.cos(rotSpeed);
-
-    } else if (stationIdx === 4) {
-      const gType = this.constelTypes[i];
-      const bx = this.posCap[i3], by = this.posCap[i3+1], bz = this.posCap[i3+2];
-      // Eje de rotación varía con el panel del carrusel activo (+30° por panel)
-      const carBias = this.carouselIndex * (Math.PI / 6);
-
-      if (gType === 0) {
-        const a = elapsed * 0.12 + carBias * 0.3;
-        x = bx*Math.cos(a) - bz*Math.sin(a); y = by; z = bx*Math.sin(a) + bz*Math.cos(a);
-      } else if (gType === 1) {
-        const a = elapsed * 1.2 + carBias;
-        x = bx*Math.cos(a) - by*Math.sin(a); y = bx*Math.sin(a) + by*Math.cos(a); z = bz;
-      } else if (gType === 2) {
-        const a = elapsed * 1.2;
-        x = bx; y = by*Math.cos(a) - bz*Math.sin(a); z = by*Math.sin(a) + bz*Math.cos(a);
-      } else if (gType === 3) {
-        const a = elapsed * 1.2 - carBias;
-        x = bx*Math.cos(a) - bz*Math.sin(a); y = by; z = bx*Math.sin(a) + bz*Math.cos(a);
-      } else {
-        const aY = elapsed * 0.18 + carBias * 0.5, aX = elapsed * 0.10;
-        const rx2 = bx*Math.cos(aY) - bz*Math.sin(aY), rz2 = bx*Math.sin(aY) + bz*Math.cos(aY);
-        x = rx2; y = by*Math.cos(aX) - rz2*Math.sin(aX); z = by*Math.sin(aX) + rz2*Math.cos(aX);
-      }
-
-    } else if (stationIdx === 5) {
-      const rx0 = this.posContact[i3], rz0 = this.posContact[i3+2];
-      const rr  = Math.sqrt(rx0*rx0 + rz0*rz0);
-      const rot = elapsed * 0.75 * (1.2 / (rr + 0.25));
-      x = rx0*Math.cos(rot) - rz0*Math.sin(rot); y = this.posContact[i3+1]; z = rx0*Math.sin(rot) + rz0*Math.cos(rot);
-
-    } else {
-      x = this.posContact[i3]; y = this.posContact[i3+1]; z = this.posContact[i3+2];
-    }
-    cb(x, y, z);
-  }
+  // (duplicate definitions removed — single canonical versions live above)
 
   // ====================================================================
-  // 5. POSICIONAMIENTO DINÁMICO DEL SISTEMA 3D
-  // ====================================================================
-  updateSystemLayoutPosition(idx, t) {
-    const isDesktop = window.innerWidth >= 1024;
-    let tX = 0, tY = 0, tScale = 1.0;
-
-    if (isDesktop) {
-      const offsetsX = [2.5, -2.5, 2.5, -2.5, 2.5, 0.0];
-      tX = offsetsX[idx] + (offsetsX[Math.min(5, idx+1)] - offsetsX[idx]) * t;
-    } else {
-      // ── DIRECTIVE 2: Mobile scale matrix — shapes are smaller companions ──
-      // oY raised to push geometry higher into the upper quadrant (more sky room for text).
-      // Scales reduced from 0.52 → 0.42 so typography dominates the lower 60% of viewport.
-      const oY     = [1.8, 1.8, 1.8, 1.8, 1.8, 0.0];
-      const scales = [0.42, 0.42, 0.42, 0.42, 0.42, 0.52];
-      tY     = oY[idx]     + (oY[Math.min(5, idx+1)]     - oY[idx])     * t;
-      tScale = scales[idx] + (scales[Math.min(5, idx+1)] - scales[idx]) * t;
-    }
-
-    this.points.position.x = THREE.MathUtils.lerp(this.points.position.x, tX, 0.07);
-    this.points.position.y = THREE.MathUtils.lerp(this.points.position.y, tY, 0.07);
-    this.points.scale.setScalar(THREE.MathUtils.lerp(this.points.scale.x, tScale, 0.07));
-  }
-
-  // ====================================================================
-  // 6. SCROLLTRIGGER — scrub:1.8, SIN snap nativo (controlado por motor propio)
+  // 6. gsap.matchMedia() — Breakpoint-Aware Animation Contexts
+  //    Desktop  ≥ 1024px : shapes sit left/right of text, full scale
+  //    Mobile   < 1024px : shapes occupy upper zone, reduced scale
+  //    Both contexts clean up automatically on boundary crossing.
   // ====================================================================
   initAnimations() {
     this.scrollObj.progress = 0.0;
     this.smoothedProgress = 0.0;
     this.updateActiveSlide(0.0);
+
+    // Only initialise matchMedia if gsap is loaded (CDN may be blocked)
+    if (typeof gsap === 'undefined' || !gsap.matchMedia) return;
+
+    const mm = gsap.matchMedia();
+
+    // ── Desktop context ≥ 1024px ─────────────────────────────────────
+    mm.add('(min-width: 1024px)', (ctx) => {
+      // Snap particle system to correct desktop X position immediately
+      const offsetsX = [2.5, -2.5, 2.5, -2.5, 2.5, 0.0];
+      const idx = this.activeStationIdx;
+      gsap.to(this.points.position, {
+        x: offsetsX[idx],
+        y: 0,
+        duration: 0.4,
+        ease: 'power2.out',
+        overwrite: 'auto'
+      });
+      gsap.to(this.points.scale, {
+        x: 1.0, y: 1.0, z: 1.0,
+        duration: 0.4,
+        ease: 'power2.out',
+        overwrite: 'auto'
+      });
+
+      // Revert: clean up any desktop-only tweens
+      return () => {
+        gsap.killTweensOf(this.points.position);
+        gsap.killTweensOf(this.points.scale);
+      };
+    });
+
+    // ── Mobile context < 1024px ──────────────────────────────────────
+    mm.add('(max-width: 1023px)', (ctx) => {
+      // Snap shape to responsive upper-zone position immediately on entry
+      const topY = this._mobileTopOffset();
+      gsap.to(this.points.position, {
+        x: 0,
+        y: this.activeStationIdx === 5 ? 0 : topY,
+        duration: 0.4,
+        ease: 'power2.out',
+        overwrite: 'auto'
+      });
+      gsap.to(this.points.scale, {
+        x: 0.42, y: 0.42, z: 0.42,
+        duration: 0.4,
+        ease: 'power2.out',
+        overwrite: 'auto'
+      });
+
+      // Revert: clean up any mobile-only tweens
+      return () => {
+        gsap.killTweensOf(this.points.position);
+        gsap.killTweensOf(this.points.scale);
+      };
+    });
+
+    // Store matchMedia instance so handleViewportChange can call mm.refresh()
+    this._mm = mm;
   }
 
   // ====================================================================
@@ -989,9 +993,18 @@ class QuantumEngine {
     });
 
     if (activeIdx === 4 && prev !== 4 && !this._noCarouselReset) {
-      this._noCarouselReset = true;
-      this.goToCarouselCard(prev < 4 ? 0 : 2);
-      this._noCarouselReset = false;
+      // ── _pendingTab guard ────────────────────────────────────────────────────────────
+      // When navigateToSlide targets station 4 WITH a specific tab
+      // (e.g. "Proyectos"), _pendingTab is already set.  Firing the generic
+      // auto-reset here (goToCarouselCard(0)) would launch a competing tween
+      // on #carousel-track that onComplete's goToCarouselCard(1) must then
+      // fight to override — causing the visible jitter on rapid nav clicks.
+      // Suppress the auto-reset; onComplete handles the exact panel.
+      if (!this._pendingTab) {
+        this._noCarouselReset = true;
+        this.goToCarouselCard(prev < 4 ? 0 : 2);
+        this._noCarouselReset = false;
+      }
     }
 
     document.getElementById('main-nav')?.classList.toggle('scrolled', activeIdx > 0);
@@ -1084,10 +1097,17 @@ class QuantumEngine {
     const vp = document.querySelector('.carousel-viewport');
     if (!vp) return;
 
+    // ── Kill any in-flight track tween before starting the new one ─────────────────────
+    // Without this, two concurrent gsap.to('#carousel-track') calls fight for
+    // DOM transform dominance on every rapid nav click, causing jitter and
+    // layout thrashing. overwrite:'auto' is an extra safety net for any edge
+    // cases where the kill arrives mid-tick.
+    gsap.killTweensOf('#carousel-track');
     gsap.to('#carousel-track', {
       x:        -this.carouselIndex * vp.offsetWidth,
       duration: 0.78,
-      ease:     'power3.inOut'
+      ease:     'power3.inOut',
+      overwrite: 'auto'
     });
 
     // Indicadores
@@ -1272,16 +1292,59 @@ class QuantumEngine {
       this.isMobileScrolling = false;
     }, { passive: true });
 
+    // ── Resize + orientation change handler ──
+    // Recalculates camera, renderer, carousel track width, AND immediately
+    // snaps the particle system to the correct layout position for the new
+    // viewport so shapes never sit at a stale world-space coordinate.
+    const handleViewportChange = () => {
+      // 1. Re-evaluate breakpoint flags so fps-limiter and lerp speed are correct
+      this._isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+      this._isTablet = !this._isMobile && window.innerWidth <= 1024;
+      this._frameLimit = this._isMobile ? 1000 / 30 : 0;
+
+      // 2. Update Three.js camera & renderer
+      this.camera.aspect = window.innerWidth / window.innerHeight;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(window.innerWidth, window.innerHeight);
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+      // 3. Re-snap particle system to correct position for current breakpoint.
+      //    Hard-set position first to bypass the lerp lag, then let the next
+      //    frame's lerp take over for smooth micro-corrections.
+      const idx = this.activeStationIdx;
+      const isDesktop = window.innerWidth >= 1024;
+      if (isDesktop) {
+        const offsetsX = [2.5, -2.5, 2.5, -2.5, 2.5, 0.0];
+        this.points.position.x = offsetsX[idx];
+        this.points.position.y = 0;
+        this.points.scale.setScalar(1.0);
+      } else {
+        this.points.position.x = 0;
+        this.points.position.y = idx === 5 ? 0 : this._mobileTopOffset();
+        this.points.scale.setScalar(0.42);
+      }
+
+      // 4. Notify gsap.matchMedia() about the new viewport so it can swap
+      //    contexts and fire the correct revert/setup functions.
+      if (this._mm && typeof this._mm.refresh === 'function') {
+        this._mm.refresh();
+      }
+
+      // 5. Re-seat the carousel track at the correct pixel offset
+      this.goToCarouselCard(this.carouselIndex);
+    };
+
     let resizeTimer;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        this.camera.aspect = window.innerWidth / window.innerHeight;
-        this.camera.updateProjectionMatrix();
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        this.goToCarouselCard(this.carouselIndex);
-      }, 150);
+      resizeTimer = setTimeout(handleViewportChange, 150);
+    });
+
+    // orientationchange fires before the new dimensions are available;
+    // a 300 ms delay lets the browser finish its layout pass first.
+    window.addEventListener('orientationchange', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(handleViewportChange, 300);
     });
   }
 
@@ -1289,41 +1352,95 @@ class QuantumEngine {
   // DIRECTIVE 1: navigateToSlide — GSAP hard-drive to exact snap position
   // ====================================================================
   navigateToSlide(targetIdx, tab = null) {
-    if (this.isAnimating) return;
+    // ─────────────────────────────────────────────────────────────────────
+    // FAST-PATH: already at the target station — skip the full scroll tween
+    // ─────────────────────────────────────────────────────────────────────
+    // Clicking "Proyectos", "Metodología", "Capacitación" while already on
+    // station 4 does NOT need a 0.9-1.2 s scroll tween over a zero-delta
+    // progress value.  Go directly to the carousel panel.
+    if (targetIdx === this.activeStationIdx && !this.isAnimating) {
+      if (tab && targetIdx === 4) {
+        const map = { training: 0, projects: 1, methodology: 2 };
+        const ci  = map[tab];
+        if (ci !== undefined) this.goToCarouselCard(ci);
+      }
+      return;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // PENDING-DESTINATION QUEUE: last click always wins
+    // ─────────────────────────────────────────────────────────────────────
+    // Old behaviour: silently drop every click while isAnimating=true.
+    // New behaviour: remember the LAST requested destination.  When the
+    // current animation's onComplete fires and clears isAnimating, it
+    // immediately replays the queued navigation instead of going idle.
+    if (this.isAnimating) {
+      this._pendingNav = { targetIdx, tab };
+      return;
+    }
+
+    // ── Lock the engine ───────────────────────────────────────────────────────────
     this.isAnimating = true;
     this._gsapDone   = false;
     this.lastTransitionTime = Date.now();
 
     this.transitionFrom = this.activeStationIdx;
-    this.transitionTo = targetIdx;
+    this.transitionTo   = targetIdx;
+
+    // Expose intended tab BEFORE the tween starts so that updateActiveSlide’s
+    // onUpdate callbacks can see _pendingTab and suppress the auto-reset that
+    // would otherwise fire a competing goToCarouselCard() mid-transition.
+    this._pendingTab = tab;
 
     const endProgress = targetIdx * 0.2;
 
+    // Kill any orphaned scrollObj tween from a previous navigation that was
+    // interrupted (e.g. user called navigateToSlide while a prior one was
+    // completing its 150 ms settle timeout).
+    gsap.killTweensOf(this.scrollObj);
+
     gsap.to(this.scrollObj, {
-      progress: endProgress,
-      duration: 1.2, // Slower, smoother, and more professional slide transition duration
-      ease: 'none', // Easing is handled mathematically in rendering loop
+      progress:  endProgress,
+      duration:  this._isMobile ? 0.9 : 1.2,
+      ease:      'none',         // mathematical easing lives in the render loop
+      overwrite: 'auto',         // evicts any same-property tween sharing the target
       onUpdate: () => {
         this.updateActiveSlide(this.scrollObj.progress);
       },
       onComplete: () => {
+        // Hard-set to avoid floating-point drift at the end of a tween
         this.scrollObj.progress = endProgress;
-        this.smoothedProgress = endProgress;
-        this.transitionFrom = targetIdx;
-        this.transitionTo = targetIdx;
+        this.smoothedProgress   = endProgress;
+        this.transitionFrom     = targetIdx;
+        this.transitionTo       = targetIdx;
 
-        if (tab) {
+        // Navigate to the correct carousel panel (tab-directed nav).
+        // This fires AFTER the _pendingTab guard in updateActiveSlide has
+        // already suppressed the incorrect auto-reset, so there is exactly
+        // one goToCarouselCard call with the right panel index.
+        if (this._pendingTab) {
           const map = { training: 0, projects: 1, methodology: 2 };
-          const ci  = map[tab];
+          const ci  = map[this._pendingTab];
           if (ci !== undefined) this.goToCarouselCard(ci);
         }
+        // Clear the pendingTab flag now that the directed panel is set
+        this._pendingTab = null;
 
+        // Release the lock after a short settle window, then drain the
+        // pending-destination queue (last-click-wins).
         setTimeout(() => {
           this.isAnimating = false;
           if (!this._touchEndPending) {
             this.isMobileScrolling = false;
           } else {
             this._gsapDone = true;
+          }
+
+          // Drain pending nav — replay the last queued destination
+          if (this._pendingNav) {
+            const { targetIdx: pIdx, tab: pTab } = this._pendingNav;
+            this._pendingNav = null;
+            this.navigateToSlide(pIdx, pTab);
           }
         }, 150);
       }
